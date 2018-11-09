@@ -39,7 +39,7 @@
         android:layout_height="45dp"
         android:layout_marginTop="8dp"
         android:gravity="center"
-        android:text="取消"
+        android:text="cancel"
         android:textSize="18sp"
         android:textStyle="bold" />
 
