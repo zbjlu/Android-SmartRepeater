@@ -1,2 +1,2 @@
-# smartRepeater-Android
-Repeater onboarding Android Application
+# Android-SmartRepeater
+Smart Repeater onboarding Android Application
