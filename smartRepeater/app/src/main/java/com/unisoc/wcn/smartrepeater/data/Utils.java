@@ -75,7 +75,12 @@ public class Utils {
         String addressStr = "";
         for (int i = 0; i < macBytes.length; i++) {
             String sTemp = Integer.toHexString(0xFF & macBytes[i]);
-            addressStr = addressStr + sTemp + ":";
+            int sigleCheck = macBytes[i];
+            if (sigleCheck >= 0 && sigleCheck <= 15) {
+                addressStr = addressStr + "0" + sTemp + ":";
+            } else {
+                addressStr = addressStr + sTemp + ":";
+            }
         }
         addressStr = addressStr.substring(0, addressStr.lastIndexOf(":"));
         return addressStr;
