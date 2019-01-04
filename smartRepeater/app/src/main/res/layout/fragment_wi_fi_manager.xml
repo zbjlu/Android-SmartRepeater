@@ -28,10 +28,22 @@
                 android:textSize="16sp"></Spinner>
         </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="match_parent">
+
+            <Button
+                android:id="@+id/close_remote_bt"
+                android:layout_width="match_parent"
+                android:layout_height="35dp"
+                android:layout_marginLeft="10dp"
+                android:layout_marginRight="10dp"
+                android:text="Close BT" />
+        </LinearLayout>
+
         <View
             android:layout_width="fill_parent"
             android:layout_height="2px"
-            android:layout_marginTop="15dp"
             android:background="#000000" />
 
         <LinearLayout
@@ -50,17 +62,29 @@
                     android:id="@+id/wifi_state"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="WIFI STATE: ---" />
+                    android:text="WIFI STATE: ---"
+                    android:textSize="12dp" />
+
                 <TextView
-                    android:id="@+id/connected_wifi_message"
+                    android:id="@+id/router_ssid"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="CONNECTED WIFI: ---" />
+                    android:text="ROUTER SSID: ---"
+                    android:textSize="12dp" />
+
+                <TextView
+                    android:id="@+id/router_bssid"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ROUTER BSSID: xx:xx:xx:xx:xx:xx"
+                    android:textSize="12dp" />
+
                 <TextView
                     android:id="@+id/wifi_sta_address"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="STATE ADDR: xx:xx:xx:xx:xx:xx" />
+                    android:text="STATE ADDR: xx:xx:xx:xx:xx:xx"
+                    android:textSize="12dp" />
             </LinearLayout>
 
             <LinearLayout
@@ -119,25 +143,26 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:orientation="horizontal">
+
                 <EditText
                     android:id="@+id/wifi_password"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginLeft="15dp"
-                    android:hint="WiFi PASSWORD"
                     android:layout_weight="1"
+                    android:hint="WiFi PASSWORD"
                     android:paddingLeft="20dp" />
 
                 <Button
                     android:id="@+id/start_wifi_scan"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:clickable="true"
-                    android:focusable="true"
                     android:layout_marginLeft="15dp"
                     android:layout_marginRight="10dp"
                     android:layout_weight="2"
-                    android:text="Wifi Scan" />
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:text="Scan" />
 
             </LinearLayout>
 
@@ -168,38 +193,46 @@
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
-                android:layout_weight="1"
+                android:layout_weight="2"
                 android:gravity="center"
                 android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/wifi_ap_state"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="AP STATE: --" />
+
                 <TextView
                     android:id="@+id/wifi_ap_address"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:gravity="center"
-                    android:text="STATE ADDR: xx:xx:xx:xx:xx:xx" />
+                    android:text="AP MAC: xx:xx:xx:xx:xx:xx" />
+
+                <EditText
+                    android:id="@+id/ap_mac"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="15dp"
+                    android:hint="AP SSID"
+                    android:paddingLeft="20dp"
+                    android:textSize="14dp" />
             </LinearLayout>
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:layout_weight="1">
+
                 <Button
                     android:id="@+id/soft_ap_start"
                     android:layout_width="match_parent"
                     android:layout_height="60dp"
+                    android:layout_gravity="center"
                     android:layout_marginRight="10dp"
-                    android:text="Start AP" />
-            </LinearLayout>
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_weight="1">
-                <Button
-                    android:id="@+id/close_remote_bt"
-                    android:layout_width="match_parent"
-                    android:layout_height="60dp"
-                    android:layout_marginRight="10dp"
-                    android:text="Close BT" />
+                    android:text="Start" />
             </LinearLayout>
         </LinearLayout>
 
@@ -207,6 +240,13 @@
             android:layout_width="fill_parent"
             android:layout_height="2px"
             android:background="#000000" />
+
+        <ListView
+            android:id="@+id/client_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_margin="10dp"
+            android:choiceMode="singleChoice" />
     </LinearLayout>
 
 

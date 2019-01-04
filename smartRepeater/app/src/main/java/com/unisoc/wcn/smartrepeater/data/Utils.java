@@ -86,6 +86,17 @@ public class Utils {
         return addressStr;
     }
 
+    public static byte[] MacStrToByteArray(String addressStr) {
+        byte[] macBytes = new byte[6];
+        String[] strArr = addressStr.split(":");
+
+        for (int i = 0; i < strArr.length; i++) {
+            int value = Integer.parseInt(strArr[i], 16);
+            macBytes[i] = (byte) value;
+        }
+        return macBytes;
+    }
+
     public static String printHexString(byte[] b) {
         String mess = "";
         for (int i = 0; i < b.length; i++) {

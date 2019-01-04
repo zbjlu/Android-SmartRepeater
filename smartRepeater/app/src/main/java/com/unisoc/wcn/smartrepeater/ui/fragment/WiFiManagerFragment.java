@@ -18,8 +18,10 @@ import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ListView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -30,6 +32,7 @@ import com.unisoc.wcn.smartrepeater.data.ScanWiFiData;
 import com.unisoc.wcn.smartrepeater.data.Utils;
 import com.unisoc.wcn.smartrepeater.service.BluetoothLeService;
 import com.unisoc.wcn.smartrepeater.service.MainService;
+import com.unisoc.wcn.smartrepeater.ui.base.MacClientListAdapter;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,12 +51,22 @@ public class WiFiManagerFragment extends Fragment {
     private static final byte GET_STATE_WIFI_RES = (byte) 0x85;
     private static final byte GET_CONF_WIFI_RES = (byte) 0x86;
     private static final byte GET_START_AP_RES = (byte) 0x87;
+    private static final byte GET_STOP_AP_RES = (byte) 0x8B;
 
     private static final byte WIFI_SCAN_STATE_RES = (byte) 0x89;
     private static final byte WIFI_SCAN_RESULT_RES = (byte) 0x8A;
+    private static final byte DELETE_AP_RESULT_RES = (byte) 0x8C;
 
     private static final byte CMD_STATE_SUCCESSFUL_RES = (byte) 0x00;
     private static final byte CMD_STATE_FAILED_RES = (byte) 0x01;
+
+    private static final int WIFI_STATE_CLOSED = 0;
+    private static final int WIFI_STATE_READY = 1;
+    private static final int WIFI_STATE_CONNECTED = 2;
+
+    private static final byte AP_STATE_CLOSED = (byte) 0x00;
+    private static final byte AP_STATE_READY = (byte) 0x01;
+    private static final byte AP_STATE_STARTED = (byte) 0x02;
 
     private TextView mWiFiState = null;
     private Button mWiFiManager = null;
@@ -61,9 +74,13 @@ public class WiFiManagerFragment extends Fragment {
     private EditText mWiFiPassword = null;
     private TextView mConnectedWiFiMessage = null;
     private Button mSetConf = null;
+    private EditText mApMac = null;
 
+    private TextView mWiFiRouName = null;
+    private TextView mWiFiRouAddress = null;
     private TextView mWiFiStaAddress = null;
     private TextView mWiFiApAddress = null;
+    private TextView mWiFiApState = null;
 
     private Button mSoftApStart = null;
     private Button mCloseRemoteBt = null;
@@ -75,6 +92,11 @@ public class WiFiManagerFragment extends Fragment {
     private Spinner mWifiSsidList;
     private List<String> selectedDeviceLsit = new ArrayList<String>();
     private ArrayAdapter<String> selectedDeviceLsitAdapter;
+
+    private List<String> mClientStrList = new ArrayList<String>();
+    private MacClientListAdapter mMacClientListAdapter = null;
+
+    private ListView mClientList = null;
 
     private MainService mMainService = null;
     List<BleDevice> allDevice = new ArrayList<BleDevice>();
@@ -88,6 +110,8 @@ public class WiFiManagerFragment extends Fragment {
 
     private boolean remoteDeviceWiFiState = false;
     private boolean ifConnectedWiFi = false;
+    private int mRemoteDeviceWiFiState = WIFI_STATE_CLOSED;
+    private byte mRemoteDeviceApState = AP_STATE_CLOSED;
 
     private WifiManager mWifiManager;
     private WifiInfo mWifiInfo;
@@ -122,6 +146,7 @@ public class WiFiManagerFragment extends Fragment {
         }
         wifiList.clear();
         mScanWiFiDataList.clear();
+        mClientStrList.clear();
         initBroadcast();
         initDeviceSelected();
 //        initWifiAdmin();
@@ -130,7 +155,7 @@ public class WiFiManagerFragment extends Fragment {
 
     private void init(View view) {
         mWiFiState = (TextView) view.findViewById(R.id.wifi_state);
-        mConnectedWiFiMessage = (TextView) view.findViewById(R.id.connected_wifi_message);
+//        mConnectedWiFiMessage = (TextView) view.findViewById(R.id.connected_wifi_message);
         mWiFiManager = (Button) view.findViewById(R.id.wifi_manager);
         mWiFiManager.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -145,24 +170,46 @@ public class WiFiManagerFragment extends Fragment {
         mSetConf.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                ssidAndPassSubmit();
-                try {
-                    InputMethodManager imm = (InputMethodManager)
-                            getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-                    imm.showSoftInput(v, InputMethodManager.SHOW_FORCED);
-                    imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
-                } catch (Exception e) {
-                    Log.e(TAG, "hind keyBoard error --> " + e);
+                if (mRemoteDeviceWiFiState == WIFI_STATE_CONNECTED) {
+                    sendDisconnectWiFiCmd();
+                } else if (mRemoteDeviceWiFiState == WIFI_STATE_READY) {
+                    ssidAndPassSubmit();
+                    try {
+                        InputMethodManager imm = (InputMethodManager)
+                                getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+                        imm.showSoftInput(v, InputMethodManager.SHOW_FORCED);
+                        imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+                    } catch (Exception e) {
+                        Log.e(TAG, "hind keyBoard error --> " + e);
+                    }
+                } else {
+                    Toast.makeText(getContext(), "Please Open WiFi of Remote Device First.", Toast.LENGTH_LONG).show();
                 }
+
             }
         });
 
+        mApMac = (EditText) view.findViewById(R.id.ap_mac);
         mSoftApStart = (Button) view.findViewById(R.id.soft_ap_start);
         mSoftApStart.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (ifConnectedWiFi) {
-                    sendSoftApStartCmd();
+                    Log.e(TAG, "Clay:: --> " + mRemoteDeviceApState);
+                    if (mRemoteDeviceApState != AP_STATE_STARTED) {
+                        String apSsid = mApMac.getText().toString().trim();
+                        sendSoftApStartCmd(apSsid);
+                    } else {
+                        sendSoftApStopCmd();
+                    }
+                    try {
+                        InputMethodManager imm = (InputMethodManager)
+                                getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+                        imm.showSoftInput(v, InputMethodManager.SHOW_FORCED);
+                        imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+                    } catch (Exception e) {
+                        Log.e(TAG, "hind keyBoard error --> " + e);
+                    }
                 } else {
                     Toast.makeText(getContext(), "Remote Device No Connected Wifi.", Toast.LENGTH_LONG).show();
                 }
@@ -183,14 +230,16 @@ public class WiFiManagerFragment extends Fragment {
                 if (remoteDeviceWiFiState) {
                     startWiFiScanCms();
                 } else {
-                    Toast.makeText(getContext(), "Please Open WiFi of Remote Device First..", Toast.LENGTH_LONG).show();
+                    Toast.makeText(getContext(), "Please Open WiFi of Remote Device First.", Toast.LENGTH_LONG).show();
                 }
-
             }
         });
 
         mWiFiStaAddress = (TextView) view.findViewById(R.id.wifi_sta_address);
+        mWiFiRouName = (TextView) view.findViewById(R.id.router_ssid);
+        mWiFiRouAddress = (TextView) view.findViewById(R.id.router_bssid);
         mWiFiApAddress = (TextView) view.findViewById(R.id.wifi_ap_address);
+        mWiFiApState = (TextView) view.findViewById(R.id.wifi_ap_state);
 
         mBTSelected = (Spinner) view.findViewById(R.id.bt_manager_selected);
         mBTSelected.setOnItemSelectedListener(new Spinner.OnItemSelectedListener() {
@@ -230,7 +279,28 @@ public class WiFiManagerFragment extends Fragment {
             public void onNothingSelected(AdapterView<?> arg0) {
             }
         });
+
+        mClientList = (ListView) view.findViewById(R.id.client_list);
+        mClientList.setClickable(true);
+        mClientList.setOnItemClickListener(mMacClientClickListener);
     }
+
+    private AdapterView.OnItemClickListener mMacClientClickListener = new AdapterView.OnItemClickListener() {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position,
+                                long id) {
+            Log.d(TAG, "delete ap client --> " + position);
+            if (remoteDeviceWiFiState) {
+                try {
+                    deleteApClientCmd(mClientStrList.get(position));
+                } catch (Exception e) {
+                    Log.e(TAG, "delete ap client error --> " + e);
+                }
+            } else {
+                Toast.makeText(getContext(), "Please Open WiFi of Remote Device First.", Toast.LENGTH_LONG).show();
+            }
+        }
+    };
 
     private void initBroadcast() {
         mFilter = new IntentFilter();
@@ -383,6 +453,10 @@ public class WiFiManagerFragment extends Fragment {
             }
             password = mWiFiPassword.getText().toString().trim();
         }
+        if (ssid == "" && bssid == "") {
+            Toast.makeText(getContext(), "SSID and BSSID both are NULL.", Toast.LENGTH_LONG).show();
+            return;
+        }
         Log.d(TAG, "ssid --> " + ssid + "; bssid --> " + bssid + "; password --> " + password);
         String bssidSend = bssid.replace(":", "");
         byte[] ssidBytes = Utils.strToByteArray(ssid);
@@ -444,9 +518,22 @@ public class WiFiManagerFragment extends Fragment {
         }
     }
 
-    private void sendSoftApStartCmd() {
+    private void sendSoftApStartCmd(String apSsid) {
         Log.d(TAG, "sendSoftApStartCmd");
-        byte[] sendDataBytes = getSoftApStartBytesGet();
+        byte[] sendDataBytes = getSoftApStartBytesGet(apSsid);
+        BluetoothLeService mBluetoothLeService = BluetoothLeService.getService();
+        if (mBluetoothLeService != null) {
+            if (mBluetoothLeService.getSelectedDevice() != null) {
+                mBluetoothLeService.wifiManagerCmdSend(sendDataBytes);
+            } else {
+                Toast.makeText(getContext(), "No Connected Device.", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    private void sendSoftApStopCmd() {
+        Log.d(TAG, "sendSoftApStopCmd");
+        byte[] sendDataBytes = getSoftApStopBytesGet();
         BluetoothLeService mBluetoothLeService = BluetoothLeService.getService();
         if (mBluetoothLeService != null) {
             if (mBluetoothLeService.getSelectedDevice() != null) {
@@ -484,6 +571,19 @@ public class WiFiManagerFragment extends Fragment {
                 mScanWiFiDataList.clear();
                 mWifiScanDialog = Utils.createLoadingDialog(this.getContext(), "loading wifi message...");
                 wifiScanDialogShowTimeOut(8000);
+                mBluetoothLeService.wifiManagerCmdSend(sendDataBytes);
+            } else {
+                Toast.makeText(getContext(), "No Connected Device.", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    private void deleteApClientCmd(String bssid) {
+        Log.d(TAG, "deleteApClientCmd");
+        byte[] sendDataBytes = getDeleteApClientBtBytesGet(bssid);
+        BluetoothLeService mBluetoothLeService = BluetoothLeService.getService();
+        if (mBluetoothLeService != null) {
+            if (mBluetoothLeService.getSelectedDevice() != null) {
                 mBluetoothLeService.wifiManagerCmdSend(sendDataBytes);
             } else {
                 Toast.makeText(getContext(), "No Connected Device.", Toast.LENGTH_LONG).show();
@@ -551,9 +651,28 @@ public class WiFiManagerFragment extends Fragment {
         return sendDataBytes;
     }
 
-    private byte[] getSoftApStartBytesGet() {
+    private byte[] getSoftApStartBytesGet(String apSsid) {
+        if (apSsid.equals("")) {
+            byte[] sendDataBytes = new byte[4];
+            sendDataBytes[0] = 0x07;
+            sendDataBytes[1] = 0x01;
+            sendDataBytes[2] = 0x00;
+            sendDataBytes[3] = 0x00;
+            return sendDataBytes;
+        } else {
+            byte[] ssidBytes = Utils.strToByteArray(apSsid);
+            int strLen = ssidBytes.length;
+            byte[] sendDataBytes = new byte[3 + strLen];
+            sendDataBytes[0] = 0x07;
+            System.arraycopy(Utils.int2bytes_two(strLen), 0, sendDataBytes, 1, 2);
+            System.arraycopy(ssidBytes, 0, sendDataBytes, 3, strLen);
+            return sendDataBytes;
+        }
+    }
+
+    private byte[] getSoftApStopBytesGet() {
         byte[] sendDataBytes = new byte[4];
-        sendDataBytes[0] = 0x07;
+        sendDataBytes[0] = (byte) 0x0b;
         sendDataBytes[1] = 0x01;
         sendDataBytes[2] = 0x00;
         sendDataBytes[3] = 0x00;
@@ -578,26 +697,37 @@ public class WiFiManagerFragment extends Fragment {
         return sendDataBytes;
     }
 
-    private void setMtu(int value) {
-        BluetoothLeService mBluetoothLeService = BluetoothLeService.getService();
-        mBluetoothLeService.setMtu(value);
+    private byte[] getDeleteApClientBtBytesGet(String bssid) {
+        byte[] sendDataBytes = new byte[9];
+        sendDataBytes[0] = (byte) 0x0c;
+        sendDataBytes[1] = 0x06;
+        sendDataBytes[2] = 0x00;
+        byte[] bssidBytes = new byte[9];
+        bssidBytes = Utils.MacStrToByteArray(bssid);
+        System.arraycopy(bssidBytes, 0, sendDataBytes, 3, 6);
+        return sendDataBytes;
     }
 
     private void wifiManagerNotify(byte[] value) {
         byte opcocde = value[0];
+        Log.d(TAG, "wifiManagerNotify:opcocde --> " + opcocde);
         switch (opcocde) {
             case OPEN_WIFI_RES: {
                 byte result = value[1];
                 if (result == CMD_STATE_SUCCESSFUL_RES) {
-                    mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
-                    mWiFiState.setText("WIFI STATE: Ready");
+//                    mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
+                    mWiFiState.setText("STA STATE: Ready");
+                    mSetConf.setText("Connect");
                     remoteDeviceWiFiState = true;
-                    mWiFiManager.setText("CLOSE WIFI");
+                    mRemoteDeviceWiFiState = WIFI_STATE_READY;
+                    mWiFiManager.setText("CLOSE");
                 } else if (result == CMD_STATE_FAILED_RES) {
                     addressShowInit(null);
-                    mWiFiState.setText("WIFI STATE: Closed");
+                    mWiFiState.setText("STA STATE: Closed");
+                    mSetConf.setText("Connect");
                     remoteDeviceWiFiState = false;
-                    mWiFiManager.setText("OPEN WIFI");
+                    mRemoteDeviceWiFiState = WIFI_STATE_CLOSED;
+                    mWiFiManager.setText("OPEN");
                 }
             }
             break;
@@ -605,14 +735,18 @@ public class WiFiManagerFragment extends Fragment {
                 byte result = value[1];
                 if (result == CMD_STATE_SUCCESSFUL_RES) {
                     addressShowInit(null);
-                    mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
-                    mWiFiState.setText("WIFI STATE: Closed");
+//                    mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
+                    mWiFiState.setText("STA STATE: Closed");
+                    mSetConf.setText("Connect");
                     remoteDeviceWiFiState = false;
-                    mWiFiManager.setText("OPEN WIFI");
+                    mRemoteDeviceWiFiState = WIFI_STATE_CLOSED;
+                    mWiFiManager.setText("OPEN");
                 } else if (result == CMD_STATE_FAILED_RES) {
-                    mWiFiState.setText("WIFI STATE: Ready");
+                    mWiFiState.setText("STA STATE: Ready");
+                    mSetConf.setText("Connect");
                     remoteDeviceWiFiState = true;
-                    mWiFiManager.setText("CLOSE WIFI");
+                    mRemoteDeviceWiFiState = WIFI_STATE_READY;
+                    mWiFiManager.setText("CLOSE");
                 }
             }
             break;
@@ -623,14 +757,17 @@ public class WiFiManagerFragment extends Fragment {
                 }
                 byte result = value[1];
                 if (result == CMD_STATE_SUCCESSFUL_RES) {
-                    mWiFiState.setText("WIFI STATE: Connected");
+                    mWiFiState.setText("STA STATE: Connected");
+                    mSetConf.setText("Disconnect");
                     remoteDeviceWiFiState = true;
-                    mWiFiManager.setText("CLOSE WIFI");
+                    mRemoteDeviceWiFiState = WIFI_STATE_CONNECTED;
+                    mWiFiManager.setText("CLOSE");
                     ifConnectedWiFi = true;
                     sendGetStateCmd();
                     Toast.makeText(getContext(), "Connection Success...", Toast.LENGTH_LONG).show();
                 } else if (result == CMD_STATE_FAILED_RES) {
                     ifConnectedWiFi = false;
+                    mRemoteDeviceWiFiState = WIFI_STATE_READY;
                     sendGetStateCmd();
                     Toast.makeText(getContext(), "Connection Failed...", Toast.LENGTH_LONG).show();
                 }
@@ -639,9 +776,10 @@ public class WiFiManagerFragment extends Fragment {
             case DISCONNECT_WIFI_RES: {
                 byte result = value[1];
                 if (result == CMD_STATE_SUCCESSFUL_RES) {
-                    mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
+//                    mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
                     Toast.makeText(getContext(), "Disconnect Successful...", Toast.LENGTH_LONG).show();
                     ifConnectedWiFi = false;
+                    mRemoteDeviceWiFiState = WIFI_STATE_READY;
                 } else if (result == CMD_STATE_FAILED_RES) {
                     Toast.makeText(getContext(), "Disconnect Failed...", Toast.LENGTH_LONG).show();
                 }
@@ -654,25 +792,31 @@ public class WiFiManagerFragment extends Fragment {
                     mDialog = null;
                 }
                 byte result = value[1];
-                mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
+//                mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
                 if (result == CMD_STATE_SUCCESSFUL_RES) {
 //                    Toast.makeText(getContext(), "get State Successful...", Toast.LENGTH_LONG).show();
                     int state = value[2];
                     if (state == 0x00) {
-                        mWiFiState.setText("WIFI STATE: Closed");
+                        mWiFiState.setText("STA STATE: Closed");
+                        mSetConf.setText("Connect");
                         remoteDeviceWiFiState = false;
-                        mWiFiManager.setText("OPEN WIFI");
+                        mRemoteDeviceWiFiState = WIFI_STATE_CLOSED;
+                        mWiFiManager.setText("OPEN");
                     } else {
-                        mWiFiState.setText("WIFI STATE: Ready");
+                        mWiFiState.setText("STA STATE: Ready");
+                        mSetConf.setText("Connect");
                         remoteDeviceWiFiState = true;
-                        mWiFiManager.setText("CLOSE WIFI");
+                        mRemoteDeviceWiFiState = WIFI_STATE_READY;
+                        mWiFiManager.setText("CLOSE");
                         if (state == 0x04) {
-                            mWiFiState.setText("WIFI STATE: Connected");
+                            mWiFiState.setText("STA STATE: Connected");
+                            mSetConf.setText("Disconnect");
                             sendGetConfInfoCmd();
                             ifConnectedWiFi = true;
+                            mRemoteDeviceWiFiState = WIFI_STATE_CONNECTED;
                         } else {
                             ifConnectedWiFi = false;
-                            mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
+//                            mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
                         }
                     }
                     addressShowInit(value);
@@ -686,10 +830,12 @@ public class WiFiManagerFragment extends Fragment {
                 byte result = value[1];
                 if (result == CMD_STATE_SUCCESSFUL_RES) {
                     ifConnectedWiFi = true;
-                    mConnectedWiFiMessage.setText(parseConnectedWiFiMess(value));
+                    mRemoteDeviceWiFiState = WIFI_STATE_CONNECTED;
+//                    mConnectedWiFiMessage.setText(parseConnectedWiFiMess(value));
                 } else if (result == CMD_STATE_FAILED_RES) {
                     ifConnectedWiFi = false;
-                    mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
+                    mRemoteDeviceWiFiState = WIFI_STATE_READY;
+//                    mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
                     Toast.makeText(getContext(), "get Conf Failed...", Toast.LENGTH_LONG).show();
                 }
             }
@@ -697,9 +843,24 @@ public class WiFiManagerFragment extends Fragment {
             case GET_START_AP_RES: {
                 byte result = value[1];
                 if (result == CMD_STATE_SUCCESSFUL_RES) {
+                    mRemoteDeviceApState = AP_STATE_STARTED;
+                    mSoftApStart.setText("STOP");
+                    mWiFiApState.setText("AP STATE: STARTED");
                     Toast.makeText(getContext(), "Start AP Successful...", Toast.LENGTH_LONG).show();
                 } else if (result == CMD_STATE_FAILED_RES) {
                     Toast.makeText(getContext(), "Start AP Failed...", Toast.LENGTH_LONG).show();
+                }
+            }
+            break;
+            case GET_STOP_AP_RES: {
+                byte result = value[1];
+                if (result == CMD_STATE_SUCCESSFUL_RES) {
+                    mRemoteDeviceApState = AP_STATE_CLOSED;
+                    mSoftApStart.setText("START");
+                    mWiFiApState.setText("AP STATE: CLOSE");
+                    Toast.makeText(getContext(), "Close AP Successful...", Toast.LENGTH_LONG).show();
+                } else if (result == CMD_STATE_FAILED_RES) {
+                    Toast.makeText(getContext(), "Close AP Failed...", Toast.LENGTH_LONG).show();
                 }
             }
             break;
@@ -716,6 +877,19 @@ public class WiFiManagerFragment extends Fragment {
                     parseWifiScanResult(value);
                 } else if (result == CMD_STATE_FAILED_RES) {
                     Toast.makeText(getContext(), "wifi scan resulr failed...", Toast.LENGTH_LONG).show();
+                }
+            }
+            break;
+            case DELETE_AP_RESULT_RES: {
+                byte result = value[1];
+                if (result == CMD_STATE_SUCCESSFUL_RES) {
+                    try {
+                        updateApClientList(value);
+                    } catch (Exception e) {
+                        Log.e(TAG, "DELETE_AP_RESULT_RES ERROR --> " + e);
+                    }
+                } else if (result == CMD_STATE_FAILED_RES) {
+                    Toast.makeText(getContext(), "ap client delete failed...", Toast.LENGTH_LONG).show();
                 }
             }
             break;
@@ -846,18 +1020,102 @@ public class WiFiManagerFragment extends Fragment {
 
     private void addressShowInit(byte[] value) {
         if (value == null) {
-            mWiFiStaAddress.setText("STATE ADDR: xx:xx:xx:xx:xx:xx");
-            mWiFiApAddress.setText("AP ADDR: xx:xx:xx:xx:xx:xx");
-            mWiFiState.setText("WIFI STATE: ---");
-            mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
+            mWiFiRouName.setText("ROUTER BSSID: ---");
+            mWiFiRouAddress.setText("ROUTER SSID: xx:xx:xx:xx:xx:xx");
+            mWiFiStaAddress.setText("STA MAC: xx:xx:xx:xx:xx:xx");
+            mWiFiApAddress.setText("AP MAC: xx:xx:xx:xx:xx:xx");
+            mWiFiApState.setText("AP STATE: CLOSE");
+            mWiFiState.setText("STA STATE: Closed");
+            mSetConf.setText("Connect");
+//            mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
         } else {
+//STA and ROUTER MESSAGE
+            //sta bssid
             byte[] staAddrByte = new byte[6];
-            byte[] apAddrByte = new byte[6];
             System.arraycopy(value, 3, staAddrByte, 0, 6);
-            System.arraycopy(value, 9, apAddrByte, 0, 6);
-            mWiFiStaAddress.setText("STATE ADDR: " + Utils.ByteArrayToMacStr(staAddrByte));
-            mWiFiApAddress.setText("AP ADDR: " + Utils.ByteArrayToMacStr(apAddrByte));
+            mWiFiStaAddress.setText("STA MAC: " + Utils.ByteArrayToMacStr(staAddrByte));
+            //router ssid len
+            byte[] staSsidLenByte = new byte[2];
+            System.arraycopy(value, 9, staSsidLenByte, 0, 2);
+            int routerSsidLen = Utils.bytes2int_two(staSsidLenByte);
+            Log.d(TAG, "router ssid len --> " + routerSsidLen);
+            //router ssid
+            if (routerSsidLen != 0) {
+                byte[] routerSsidByte = new byte[routerSsidLen];
+                System.arraycopy(value, 11, routerSsidByte, 0, routerSsidLen);
+                mWiFiRouName.setText("ROUTER BSSID: " + Utils.byteArrayToStr(routerSsidByte));
+            } else {
+                mWiFiRouName.setText("ROUTER BSSID: ---");
+            }
+            //router bssid len
+            byte[] routerBSsidLenByte = new byte[2];
+            System.arraycopy(value, 11 + routerSsidLen, routerBSsidLenByte, 0, 2);
+            int routerBSsidLen = Utils.bytes2int_two(routerBSsidLenByte);
+            Log.d(TAG, "router bssid len --> " + routerBSsidLen);
+            if (routerBSsidLen != 0) {
+                //sta bssid
+                byte[] routerBSsidByte = new byte[6];
+                System.arraycopy(value, 13 + routerSsidLen, routerBSsidByte, 0, 6);
+                mWiFiRouAddress.setText("ROUTER SSID: " + Utils.ByteArrayToMacStr(routerBSsidByte));
+            } else {
+                mWiFiRouAddress.setText("ROUTER SSID: xx:xx:xx:xx:xx:xx");
+            }
+//AP MESSAGE
+            //ap state
+            mRemoteDeviceApState = value[13 + routerSsidLen + routerBSsidLen];
+            Log.d(TAG, "ap state --> " + mRemoteDeviceApState);
+            if (mRemoteDeviceApState == AP_STATE_READY) {
+                mWiFiApState.setText("AP STATE: Ready");
+                mSoftApStart.setText("START");
+            } else if (mRemoteDeviceApState == AP_STATE_STARTED) {
+                mWiFiApState.setText("AP STATE: STARTED");
+                mSoftApStart.setText("CLOSE");
+            } else {
+                mWiFiApState.setText("AP STATE: Closed");
+                mSoftApStart.setText("START");
+            }
+            //ap bssid
+            byte[] apAddrByte = new byte[6];
+            System.arraycopy(value, 14 + routerSsidLen + routerBSsidLen, apAddrByte, 0, 6);
+            mWiFiApAddress.setText("AP MAC: " + Utils.ByteArrayToMacStr(apAddrByte));
+//AP CLIENT MESSAGE
+            //client len
+            byte[] apClientLenByte = new byte[2];
+            System.arraycopy(value, 20 + routerSsidLen + routerBSsidLen, apClientLenByte, 0, 2);
+            int apClientLen = Utils.bytes2int_two(apClientLenByte);
+            Log.d(TAG, "client len --> " + apClientLen);
+            int appClientNum = apClientLen / 6;
+            for (int i = 0; i < appClientNum; i++) {
+                byte[] apClientAddrByte = new byte[6];
+                System.arraycopy(value, 22 + routerSsidLen + routerBSsidLen + 6 * i, apClientAddrByte, 0, 6);
+                String apClientAddrStr = Utils.ByteArrayToMacStr(apClientAddrByte);
+                mClientStrList.add(apClientAddrStr);
+            }
+            clientListUpdate();
         }
+    }
+
+    private void updateApClientList(byte[] value) {
+        byte type = value[2];
+        byte[] bssidByte = new byte[6];
+        System.arraycopy(value, 3, bssidByte, 0, 6);
+        String bssidStr = Utils.ByteArrayToMacStr(bssidByte);
+        if (type == 0x00) {
+            Log.d(TAG, "ap client delete --> " + bssidStr);
+            mClientStrList.remove(bssidStr);
+        } else if (type == 0x01) {
+            Log.d(TAG, "ap client add --> " + bssidStr);
+            mClientStrList.add(bssidStr);
+        }
+        clientListUpdate();
+    }
+
+    private void clientListUpdate() {
+        if (mMacClientListAdapter == null) {
+            mMacClientListAdapter = new MacClientListAdapter(this.getContext(), mClientStrList);
+            mClientList.setAdapter(mMacClientListAdapter);
+        }
+        mMacClientListAdapter.notifyDataSetChanged();
     }
 
     @Override
@@ -882,7 +1140,8 @@ public class WiFiManagerFragment extends Fragment {
                 initDeviceSelected();
             } else if (BluetoothLeService.ACTION_LE_WIFI_MANAGER_DATA_NOTIFY.equals(action)) {
                 byte[] value = (byte[]) intent.getByteArrayExtra(BluetoothLeService.LE_EXTRA_VALUE);
-                Log.d(TAG, "value --> " + Arrays.toString(value));
+                Log.d(TAG, "value --> " + Utils.printHexString(value));
+                Log.d(TAG, "value len --> " + value.length);
                 logMess = logMess + "\n" + Utils.printHexString(value);
                 wifiManagerNotify(value);
             }

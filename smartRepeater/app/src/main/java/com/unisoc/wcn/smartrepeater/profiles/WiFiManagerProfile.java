@@ -90,9 +90,9 @@ public class WiFiManagerProfile implements BleProfile {
         Log.i(TAG, "onDescriptorWrite");
         if (descriptor.getCharacteristic().getUuid().equals(WIFI_CONFIGURE_CHARACTERISTIC)) {
             if (descriptor.getUuid().equals(CHARACTERISTIC_CONFIGURATION)) {
-                Log.d(TAG, "set mtu --> 150");
+                Log.d(TAG, "set mtu --> 180");
                 BluetoothLeService mBluetoothLeService = BluetoothLeService.getService();
-                mBluetoothLeService.requestMtu(gatt, 150);
+                mBluetoothLeService.requestMtu(gatt, 180);
             }
         }
     }
