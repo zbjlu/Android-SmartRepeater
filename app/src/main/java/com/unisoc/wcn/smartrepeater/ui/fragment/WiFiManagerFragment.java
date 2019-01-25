@@ -26,6 +26,10 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import android.support.annotation.IntDef;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
 import com.unisoc.wcn.smartrepeater.R;
 import com.unisoc.wcn.smartrepeater.data.BleDevice;
 import com.unisoc.wcn.smartrepeater.data.ScanWiFiData;
@@ -67,6 +71,18 @@ public class WiFiManagerFragment extends Fragment {
     private static final byte AP_STATE_CLOSED = (byte) 0x00;
     private static final byte AP_STATE_READY = (byte) 0x01;
     private static final byte AP_STATE_STARTED = (byte) 0x02;
+
+    @Retention(WifiSecType.SOURCE)
+    @IntDef({
+            WifiSecType.WIFI_SECURITY_OPEN,
+            WifiSecType.WIFI_SECURITY_PSK,
+            WifiSecType.WIFI_SECURITY_OTHERS
+    })
+    private @interface WifiSecType {
+        int WIFI_SECURITY_OPEN = 1;
+        int WIFI_SECURITY_PSK = 2;
+        int WIFI_SECURITY_OTHERS =3;
+    }
 
     private TextView mWiFiState = null;
     private Button mWiFiManager = null;
