@@ -65,3 +65,16 @@ fastlane/readme.md
 
 #vscode
 .vscode
+
+*.iml
+.gradle
+/local.properties
+/.idea
+/.idea/*.xml
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
