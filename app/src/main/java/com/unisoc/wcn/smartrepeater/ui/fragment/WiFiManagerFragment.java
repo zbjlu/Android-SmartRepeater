@@ -72,12 +72,13 @@ public class WiFiManagerFragment extends Fragment {
     private static final byte AP_STATE_READY = (byte) 0x01;
     private static final byte AP_STATE_STARTED = (byte) 0x02;
 
-    @Retention(WifiSecType.SOURCE)
     @IntDef({
             WifiSecType.WIFI_SECURITY_OPEN,
             WifiSecType.WIFI_SECURITY_PSK,
             WifiSecType.WIFI_SECURITY_OTHERS
     })
+    @Retention(RetentionPolicy.SOURCE)
+
     private @interface WifiSecType {
         int WIFI_SECURITY_OPEN = 1;
         int WIFI_SECURITY_PSK = 2;
@@ -973,6 +974,33 @@ public class WiFiManagerFragment extends Fragment {
         String ssidData = Utils.byteArrayToStr(ssidDataByte);
         Log.d(TAG, "ssidData --> " + ssidData);
 
+        //get secType
+        byte[] secTypeDataByte = new byte[2];
+/*        System.arraycopy(value, 0, secTypeDataByte, 0, 2);
+        int secTypeData = Utils.bytes2int_two(secTypeDataByte);*/
+        int secTypeData = 3;
+        String secTypeStr = "";
+
+        switch (secTypeData) {
+            case WifiSecType.WIFI_SECURITY_OPEN: {
+                secTypeStr = "OPEN";
+            }
+            break;
+            case WifiSecType.WIFI_SECURITY_PSK: {
+                secTypeStr = "WPA/WPA2";
+            }
+            break;
+            case WifiSecType.WIFI_SECURITY_OTHERS: {
+                secTypeStr = "OTHERS";
+            }
+            break;
+            default: {
+                secTypeStr = "ERROR";
+                Log.e(TAG, "secTypeData error --> " + secTypeData);
+            }
+        }
+        Log.d(TAG, "secTypeStr --> " + secTypeStr);
+
         //get bssid
         byte[] bssidDataLenByte = new byte[2];
         System.arraycopy(value, 6 + ssidDataLen, bssidDataLenByte, 0, 2);
@@ -984,7 +1012,7 @@ public class WiFiManagerFragment extends Fragment {
 //        String bssidData = Utils.byteArrayToStr(bssidDataByte);
         Log.d(TAG, "bssidData --> " + bssidData);
 
-        String wifiMess = ssidData + "\n" + bssidData;
+        String wifiMess = ssidData + "(" + secTypeStr + ")" + "\n" + bssidData;
         if (!wifiList.contains(wifiMess)) {
             ScanWiFiData mScanWifiMess = new ScanWiFiData();
             try {
