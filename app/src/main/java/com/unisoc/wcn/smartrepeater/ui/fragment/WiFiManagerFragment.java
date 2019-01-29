@@ -862,7 +862,7 @@ public class WiFiManagerFragment extends Fragment {
                 if (result == CMD_STATE_SUCCESSFUL_RES) {
                     mRemoteDeviceApState = AP_STATE_STARTED;
                     mSoftApStart.setText("STOP");
-                    mWiFiApState.setText("AP STATE: STARTED");
+                    mWiFiApState.setText("AP STATE: Started");
                     Toast.makeText(getContext(), "Start AP Successful...", Toast.LENGTH_LONG).show();
                 } else if (result == CMD_STATE_FAILED_RES) {
                     Toast.makeText(getContext(), "Start AP Failed...", Toast.LENGTH_LONG).show();
@@ -874,7 +874,7 @@ public class WiFiManagerFragment extends Fragment {
                 if (result == CMD_STATE_SUCCESSFUL_RES) {
                     mRemoteDeviceApState = AP_STATE_CLOSED;
                     mSoftApStart.setText("START");
-                    mWiFiApState.setText("AP STATE: CLOSE");
+                    mWiFiApState.setText("AP STATE: Closed");
                     Toast.makeText(getContext(), "Close AP Successful...", Toast.LENGTH_LONG).show();
                 } else if (result == CMD_STATE_FAILED_RES) {
                     Toast.makeText(getContext(), "Close AP Failed...", Toast.LENGTH_LONG).show();
@@ -1067,8 +1067,8 @@ public class WiFiManagerFragment extends Fragment {
             mWiFiRouName.setText("ROUTER BSSID: ---");
             mWiFiRouAddress.setText("ROUTER SSID: xx:xx:xx:xx:xx:xx");
             mWiFiStaAddress.setText("STA MAC: xx:xx:xx:xx:xx:xx");
-            mWiFiApAddress.setText("AP MAC: xx:xx:xx:xx:xx:xx");
-            mWiFiApState.setText("AP STATE: CLOSE");
+            mWiFiApAddress.setText("AP BSSID: xx:xx:xx:xx:xx:xx");
+            mWiFiApState.setText("AP STATE: Closed");
             mWiFiState.setText("STA STATE: Closed");
             mSetConf.setText("Connect");
 //            mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
@@ -1112,7 +1112,7 @@ public class WiFiManagerFragment extends Fragment {
                 mWiFiApState.setText("AP STATE: Ready");
                 mSoftApStart.setText("START");
             } else if (mRemoteDeviceApState == AP_STATE_STARTED) {
-                mWiFiApState.setText("AP STATE: STARTED");
+                mWiFiApState.setText("AP STATE: Started");
                 mSoftApStart.setText("CLOSE");
             } else {
                 mWiFiApState.setText("AP STATE: Closed");
@@ -1121,7 +1121,7 @@ public class WiFiManagerFragment extends Fragment {
             //ap bssid
             byte[] apAddrByte = new byte[6];
             System.arraycopy(value, 14 + routerSsidLen + routerBSsidLen, apAddrByte, 0, 6);
-            mWiFiApAddress.setText("AP MAC: " + Utils.ByteArrayToMacStr(apAddrByte));
+            mWiFiApAddress.setText("AP BSSID: " + Utils.ByteArrayToMacStr(apAddrByte));
 //AP CLIENT MESSAGE
             //client len
             byte[] apClientLenByte = new byte[2];
