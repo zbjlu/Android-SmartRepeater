@@ -297,7 +297,7 @@ public class WiFiManagerFragment extends Fragment {
             }
         });
 
-        mClientList = (ListView) view.findViewById(R.id.client_list);
+        mClientList = (ListView) view.findViewById(R.id.block_client_list);
         mClientList.setClickable(true);
         mClientList.setOnItemClickListener(mMacClientClickListener);
     }

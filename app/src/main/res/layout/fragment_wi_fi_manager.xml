@@ -12,7 +12,7 @@
         <LinearLayout
             android:layout_width="fill_parent"
             android:layout_height="fill_parent"
-            android:layout_marginLeft="5dp"
+            android:layout_marginStart="5dp"
             android:layout_marginTop="5dp">
 
             <TextView
@@ -35,15 +35,16 @@
             <Button
                 android:id="@+id/close_remote_bt"
                 android:layout_width="match_parent"
-                android:layout_height="35dp"
+                android:layout_height="wrap_content"
                 android:layout_marginLeft="10dp"
                 android:layout_marginRight="10dp"
+                android:minHeight="0dp"
                 android:text="Close BT" />
         </LinearLayout>
 
         <View
             android:layout_width="fill_parent"
-            android:layout_height="2px"
+            android:layout_height="2dp"
             android:background="#000000" />
 
         <LinearLayout
@@ -62,29 +63,30 @@
                     android:id="@+id/wifi_state"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="WIFI STATE: ---"
-                    android:textSize="12dp" />
+                    android:text="STA STATE: ---"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/wifi_sta_address"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="STA ADDR: xx:xx:xx:xx:xx:xx"
+                    android:textSize="12sp" />
 
                 <TextView
                     android:id="@+id/router_ssid"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="ROUTER SSID: ---"
-                    android:textSize="12dp" />
+                    android:textSize="12sp" />
 
                 <TextView
                     android:id="@+id/router_bssid"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="ROUTER BSSID: xx:xx:xx:xx:xx:xx"
-                    android:textSize="12dp" />
+                    android:textSize="12sp" />
 
-                <TextView
-                    android:id="@+id/wifi_sta_address"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="STATE ADDR: xx:xx:xx:xx:xx:xx"
-                    android:textSize="12dp" />
             </LinearLayout>
 
             <LinearLayout
@@ -96,22 +98,20 @@
                     android:id="@+id/wifi_manager"
                     android:layout_width="match_parent"
                     android:layout_height="60dp"
-                    android:layout_alignParentBottom="true"
-                    android:layout_marginRight="10dp"
-                    android:text="OPEN WIFI" />
+                    android:layout_marginEnd="10dp"
+                    android:text="OPEN" />
             </LinearLayout>
 
         </LinearLayout>
 
         <View
             android:layout_width="fill_parent"
-            android:layout_height="2px"
+            android:layout_height="2dp"
             android:background="#000000" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10sp"
             android:orientation="vertical">
 
             <LinearLayout
@@ -124,17 +124,17 @@
                     android:id="@+id/wifi_ssid"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginLeft="15dp"
+                    android:layout_marginStart="15dp"
                     android:layout_weight="1"
                     android:hint="SSID"
-                    android:paddingLeft="20dp" />
+                    android:textSize="16sp" />
 
                 <Spinner
                     android:id="@+id/wifi_ssid_list"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginLeft="15dp"
-                    android:layout_marginRight="10dp"
+                    android:layout_marginStart="15dp"
+                    android:layout_marginEnd="10dp"
                     android:layout_weight="2"></Spinner>
             </LinearLayout>
 
@@ -148,17 +148,17 @@
                     android:id="@+id/wifi_password"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginLeft="15dp"
+                    android:layout_marginStart="15dp"
                     android:layout_weight="1"
                     android:hint="PASSWORD"
-                    android:paddingLeft="20dp" />
+                    android:textSize="16sp"/>
 
                 <Button
                     android:id="@+id/start_wifi_scan"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginLeft="15dp"
-                    android:layout_marginRight="10dp"
+                    android:layout_marginStart="15dp"
+                    android:layout_marginEnd="10dp"
                     android:layout_weight="2"
                     android:clickable="true"
                     android:focusable="true"
@@ -166,22 +166,73 @@
 
             </LinearLayout>
 
-        </LinearLayout>
+            <Button
+                android:id="@+id/set_conf"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="20dp"
+                android:layout_marginRight="20dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:minHeight="0dp"
+                android:text="Connect" />
 
-        <Button
-            android:id="@+id/set_conf"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="10dp"
-            android:layout_marginLeft="20dp"
-            android:layout_marginRight="20dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:text="Connect" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="20dp"
+                android:layout_marginRight="20dp"
+                android:orientation="horizontal"
+                android:weightSum="2">
+                <Button
+                    android:layout_width="fill_parent"
+                    android:layout_height="match_parent"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:minHeight="0dp"
+                    android:layout_weight="1"
+                    android:text="ENABLE AUTORUN" />
+                <Button
+                    android:layout_width="fill_parent"
+                    android:layout_height="match_parent"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:minHeight="0dp"
+                    android:layout_weight="1"
+                    android:text="DISABLE AUTORUN" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginLeft="20dp"
+                android:layout_marginRight="20dp"
+                android:layout_weight="2"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/autorun_interval_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="0dp"
+                    android:gravity="center"
+                    android:text="AUTORUN INTERVAL:     "
+                    android:textColor="#000000"
+                    android:textSize="14sp"/>
+
+                <EditText
+                    android:id="@+id/autorun_interval"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="0dp"
+                    android:hint="SECONDS"
+                    android:textSize="14sp"/>
+            </LinearLayout>
+        </LinearLayout>
 
         <View
             android:layout_width="fill_parent"
-            android:layout_height="2px"
+            android:layout_height="2dp"
             android:background="#000000" />
 
         <LinearLayout
@@ -215,10 +266,9 @@
                     android:id="@+id/ap_mac"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginLeft="15dp"
+                    android:layout_marginStart="15dp"
                     android:hint="AP SSID"
-                    android:paddingLeft="20dp"
-                    android:textSize="14dp" />
+                    android:textSize="14sp" />
             </LinearLayout>
 
             <LinearLayout
@@ -231,23 +281,113 @@
                     android:layout_width="match_parent"
                     android:layout_height="60dp"
                     android:layout_gravity="center"
-                    android:layout_marginRight="10dp"
+                    android:layout_marginEnd="10dp"
                     android:text="Start" />
             </LinearLayout>
         </LinearLayout>
 
         <View
             android:layout_width="fill_parent"
-            android:layout_height="2px"
+            android:layout_height="2dp"
             android:background="#000000" />
 
-        <ListView
-            android:id="@+id/client_list"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_margin="10dp"
-            android:choiceMode="singleChoice" />
+            android:layout_height="0dp"
+            android:orientation="horizontal"
+            android:weightSum="2"
+            android:layout_weight="2">
+
+            <LinearLayout
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:weightSum="2">
+
+                <LinearLayout
+                    android:layout_width="fill_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="2"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/station_list"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36sp"
+                        android:layout_gravity="start|center"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="STATION LIST:     "
+                        android:textColor="#000000"
+                        android:textSize="12sp"/>
+
+                    <Button
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_gravity="end|center"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:minHeight="0dp"
+                        android:text="BLOCK"
+                        android:textSize="12sp"/>
+                </LinearLayout>
+
+                <ListView
+                    android:id="@+id/block_client_list"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="5dp"
+                    android:layout_weight="1"
+                    android:choiceMode="singleChoice" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:weightSum="2">
+
+                <LinearLayout
+                    android:layout_width="fill_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="2"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/black_list"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36sp"
+                        android:layout_gravity="start|center"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="BLACK LIST:     "
+                        android:textColor="#000000"
+                        android:textSize="12sp"/>
+
+                    <Button
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="end|center"
+                        android:layout_weight="1"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:minHeight="0dp"
+                        android:text="UNBLOCK"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <ListView
+                    android:id="@+id/unblock_client_list"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="5dp"
+                    android:layout_weight="1"
+                    android:choiceMode="singleChoice" />
+            </LinearLayout>
+
+        </LinearLayout>
     </LinearLayout>
-
-
 </FrameLayout>
