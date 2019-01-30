@@ -67,18 +67,33 @@
                     android:textSize="12sp" />
 
                 <TextView
-                    android:id="@+id/wifi_sta_address"
+                    android:id="@+id/wifi_sta_mac"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="STA ADDR: xx:xx:xx:xx:xx:xx"
+                    android:text="STA MAC: xx:xx:xx:xx:xx:xx"
                     android:textSize="12sp" />
 
-                <TextView
-                    android:id="@+id/router_ssid"
+                <LinearLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="ROUTER SSID: ---"
-                    android:textSize="12sp" />
+                    android:layout_height="0dp"
+                    android:layout_weight="2"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/router_sectype"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="0dp"
+                        android:text=""
+                        android:textSize="12sp"/>
+
+                    <TextView
+                        android:id="@+id/router_ssid"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="ROUTER SSID: ---"
+                        android:textSize="12sp" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/router_bssid"
@@ -167,7 +182,7 @@
             </LinearLayout>
 
             <Button
-                android:id="@+id/set_conf"
+                android:id="@+id/set_conf_and_connect"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="20dp"
@@ -185,6 +200,7 @@
                 android:orientation="horizontal"
                 android:weightSum="2">
                 <Button
+                    android:id="@+id/enable_autorun"
                     android:layout_width="fill_parent"
                     android:layout_height="match_parent"
                     android:clickable="true"
@@ -193,6 +209,7 @@
                     android:layout_weight="1"
                     android:text="ENABLE AUTORUN" />
                 <Button
+                    android:id="@+id/disable_autorun"
                     android:layout_width="fill_parent"
                     android:layout_height="match_parent"
                     android:clickable="true"
