@@ -27,6 +27,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import android.support.annotation.IntDef;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -82,7 +83,18 @@ public class WiFiManagerFragment extends Fragment {
     private @interface WifiSecType {
         int WIFI_SECURITY_OPEN = 1;
         int WIFI_SECURITY_PSK = 2;
-        int WIFI_SECURITY_OTHERS =3;
+        int WIFI_SECURITY_OTHERS = 3;
+    }
+
+    @IntDef({
+            TimeOutValue.AUTORUN_TIMEOUT_DISABLE,
+            TimeOutValue.AUTORUN_TIMEOUT_ENABLE
+    })
+    @Retention(RetentionPolicy.SOURCE)
+
+    private @interface TimeOutValue {
+        int AUTORUN_TIMEOUT_DISABLE = -1;
+        int AUTORUN_TIMEOUT_ENABLE = 0;
     }
 
     private TextView mWiFiState = null;
@@ -90,12 +102,16 @@ public class WiFiManagerFragment extends Fragment {
     private EditText mWiFiSsid = null;
     private EditText mWiFiPassword = null;
     private TextView mConnectedWiFiMessage = null;
-    private Button mSetConf = null;
+    private Button mSetConfAndConnect = null;
+    private Button mAutorunEnable = null;
+    private Button mAutorunDisable = null;
+    private EditText mAutorunInterval = null;
     private EditText mApMac = null;
 
+    private TextView mWiFiRouSecType = null;
     private TextView mWiFiRouName = null;
     private TextView mWiFiRouAddress = null;
-    private TextView mWiFiStaAddress = null;
+    private TextView mWiFiStaMac = null;
     private TextView mWiFiApAddress = null;
     private TextView mWiFiApState = null;
 
@@ -129,6 +145,7 @@ public class WiFiManagerFragment extends Fragment {
     private boolean ifConnectedWiFi = false;
     private int mRemoteDeviceWiFiState = WIFI_STATE_CLOSED;
     private byte mRemoteDeviceApState = AP_STATE_CLOSED;
+    private int mAutorunIntervalValue = TimeOutValue.AUTORUN_TIMEOUT_DISABLE;
 
     private WifiManager mWifiManager;
     private WifiInfo mWifiInfo;
@@ -183,8 +200,8 @@ public class WiFiManagerFragment extends Fragment {
         });
         mWiFiSsid = (EditText) view.findViewById(R.id.wifi_ssid);
         mWiFiPassword = (EditText) view.findViewById(R.id.wifi_password);
-        mSetConf = (Button) view.findViewById(R.id.set_conf);
-        mSetConf.setOnClickListener(new View.OnClickListener() {
+        mSetConfAndConnect = (Button) view.findViewById(R.id.set_conf_and_connect);
+        mSetConfAndConnect.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (mRemoteDeviceWiFiState == WIFI_STATE_CONNECTED) {
@@ -203,6 +220,29 @@ public class WiFiManagerFragment extends Fragment {
                     Toast.makeText(getContext(), "Please Open WiFi of Remote Device First.", Toast.LENGTH_LONG).show();
                 }
 
+            }
+        });
+
+        mAutorunInterval = (EditText) view.findViewById(R.id.autorun_interval);
+
+        mAutorunEnable = (Button) view.findViewById(R.id.enable_autorun);
+        mAutorunEnable.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mAutorunIntervalValue >= 0) {
+                    sendSetConfCmd(mAutorunIntervalValue);
+                } else {
+                    Toast.makeText(getContext(), "Autorun Enable Error. mAutorunIntervalValue: " + mAutorunIntervalValue, Toast.LENGTH_LONG).show();
+                }
+
+            }
+        });
+
+        mAutorunDisable = (Button) view.findViewById(R.id.disable_autorun);
+        mAutorunDisable.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                    sendSetConfCmd(TimeOutValue.AUTORUN_TIMEOUT_DISABLE);
             }
         });
 
@@ -252,8 +292,9 @@ public class WiFiManagerFragment extends Fragment {
             }
         });
 
-        mWiFiStaAddress = (TextView) view.findViewById(R.id.wifi_sta_address);
+        mWiFiStaMac = (TextView) view.findViewById(R.id.wifi_sta_mac);
         mWiFiRouName = (TextView) view.findViewById(R.id.router_ssid);
+        mWiFiRouSecType = (TextView) view.findViewById(R.id.router_sectype);
         mWiFiRouAddress = (TextView) view.findViewById(R.id.router_bssid);
         mWiFiApAddress = (TextView) view.findViewById(R.id.wifi_ap_address);
         mWiFiApState = (TextView) view.findViewById(R.id.wifi_ap_state);
@@ -435,9 +476,9 @@ public class WiFiManagerFragment extends Fragment {
 
     private void ssidAndPassSubmit() {
         Log.d(TAG, "ssidAndPassSubmit");
-        String ssid = "";
-        String bssid = "";
-        String password = "";
+        String ssid;
+        String bssid;
+        String password;
         // for mWiFiResultList
 //        if (mWiFiResultList.size() == 0) {
 //            Log.e(TAG, "ssidAndPassSubmit error --> mWiFiResultList.size() == 0");
@@ -525,6 +566,50 @@ public class WiFiManagerFragment extends Fragment {
     private void sendGetConfInfoCmd() {
         Log.d(TAG, "sendGetConfInfoCmd");
         byte[] sendDataBytes = getConfInfoCmdBytesGet();
+        BluetoothLeService mBluetoothLeService = BluetoothLeService.getService();
+        if (mBluetoothLeService != null) {
+            if (mBluetoothLeService.getSelectedDevice() != null) {
+                mBluetoothLeService.wifiManagerCmdSend(sendDataBytes);
+            } else {
+                Toast.makeText(getContext(), "No Connected Device.", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    private void sendSetConfCmd(int IntervalValue) {
+        String ssid;
+        String bssid;
+        String password;
+
+        Log.d(TAG, "sendSetConfCmd IntervalValue --> " + IntervalValue);
+
+        if (mScanWiFiDataList.size() == 0) {
+            Log.e(TAG, "ssidAndPassSubmit error --> mScanWiFiDataList.size() == 0");
+            ssid = mWiFiSsid.getText().toString().trim();
+            bssid = "";
+            password = mWiFiPassword.getText().toString().trim();
+        } else {
+            String showSsid = mWiFiSsid.getText().toString().trim();
+            ssid = mScanWiFiDataList.get(mChoicedWiFi).SSID;
+            if (showSsid.equals(ssid)) {
+                bssid = mScanWiFiDataList.get(mChoicedWiFi).BSSID;
+            } else {
+                bssid = "";
+            }
+            password = mWiFiPassword.getText().toString().trim();
+        }
+        if (ssid == "" && bssid == "") {
+            Toast.makeText(getContext(), "SSID and BSSID both are NULL.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        Log.d(TAG, "ssid --> " + ssid + "; bssid --> " + bssid + "; password --> " + password);
+        String bssidSend = bssid.replace(":", "");
+        byte[] ssidBytes = Utils.strToByteArray(ssid);
+        byte[] bssidBytes = Utils.hexStrToByteArray(bssidSend);
+        byte[] passBytes = Utils.strToByteArray(password);
+        byte[] IntervalBytes = Utils.int2bytes(IntervalValue);
+        byte[] sendDataBytes = setConfCmdBytesGet(ssidBytes, bssidBytes, passBytes, IntervalBytes);
+
         BluetoothLeService mBluetoothLeService = BluetoothLeService.getService();
         if (mBluetoothLeService != null) {
             if (mBluetoothLeService.getSelectedDevice() != null) {
@@ -648,6 +733,31 @@ public class WiFiManagerFragment extends Fragment {
         return sendDataBytes;
     }
 
+    private byte[] setConfCmdBytesGet(byte[] ssidBytes, byte[] bSsidBytes, byte[] passBytes, byte[] IntervalBytes) {
+        int ssidBytesLen = ssidBytes.length;
+        int bSsidBytesLen = bSsidBytes.length;
+        int passBytesLen = passBytes.length;
+        int intervalBytesLen = IntervalBytes.length;
+
+        int sendDataLen = 9 + ssidBytesLen + bSsidBytesLen + passBytesLen + intervalBytesLen;
+        byte[] sendDataBytes = new byte[sendDataLen];
+        sendDataBytes[0] = 0x0D;
+        System.arraycopy(Utils.int2bytes_two(sendDataLen - 3), 0, sendDataBytes, 1, 2);
+        //ssid
+        System.arraycopy(Utils.int2bytes_two(ssidBytesLen), 0, sendDataBytes, 3, 2);
+        System.arraycopy(ssidBytes, 0, sendDataBytes, 5, ssidBytesLen);
+        //bssid
+        System.arraycopy(Utils.int2bytes_two(bSsidBytesLen), 0, sendDataBytes, ssidBytesLen + 5, 2);
+        System.arraycopy(bSsidBytes, 0, sendDataBytes, ssidBytesLen + 7, bSsidBytesLen);
+        //passwd
+        System.arraycopy(Utils.int2bytes_two(passBytesLen), 0, sendDataBytes, ssidBytesLen + bSsidBytesLen + 7, 2);
+        System.arraycopy(passBytes, 0, sendDataBytes, ssidBytesLen + bSsidBytesLen + 9, passBytesLen);
+        //interval
+        System.arraycopy(IntervalBytes, 0, sendDataBytes, ssidBytesLen + bSsidBytesLen + passBytesLen + 9, intervalBytesLen);
+
+        return sendDataBytes;
+    }
+
     private byte[] ssidAndPassBytesGet(byte[] ssidBytes, byte[] bSsidBytes, byte[] passBytes) {
         int ssidBytesLen = ssidBytes.length;
         int bSsidBytesLen = bSsidBytes.length;
@@ -734,14 +844,14 @@ public class WiFiManagerFragment extends Fragment {
                 if (result == CMD_STATE_SUCCESSFUL_RES) {
 //                    mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
                     mWiFiState.setText("STA STATE: Ready");
-                    mSetConf.setText("Connect");
+                    mSetConfAndConnect.setText("Connect");
                     remoteDeviceWiFiState = true;
                     mRemoteDeviceWiFiState = WIFI_STATE_READY;
                     mWiFiManager.setText("CLOSE");
                 } else if (result == CMD_STATE_FAILED_RES) {
                     addressShowInit(null);
                     mWiFiState.setText("STA STATE: Closed");
-                    mSetConf.setText("Connect");
+                    mSetConfAndConnect.setText("Connect");
                     remoteDeviceWiFiState = false;
                     mRemoteDeviceWiFiState = WIFI_STATE_CLOSED;
                     mWiFiManager.setText("OPEN");
@@ -754,13 +864,13 @@ public class WiFiManagerFragment extends Fragment {
                     addressShowInit(null);
 //                    mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
                     mWiFiState.setText("STA STATE: Closed");
-                    mSetConf.setText("Connect");
+                    mSetConfAndConnect.setText("Connect");
                     remoteDeviceWiFiState = false;
                     mRemoteDeviceWiFiState = WIFI_STATE_CLOSED;
                     mWiFiManager.setText("OPEN");
                 } else if (result == CMD_STATE_FAILED_RES) {
                     mWiFiState.setText("STA STATE: Ready");
-                    mSetConf.setText("Connect");
+                    mSetConfAndConnect.setText("Connect");
                     remoteDeviceWiFiState = true;
                     mRemoteDeviceWiFiState = WIFI_STATE_READY;
                     mWiFiManager.setText("CLOSE");
@@ -775,7 +885,7 @@ public class WiFiManagerFragment extends Fragment {
                 byte result = value[1];
                 if (result == CMD_STATE_SUCCESSFUL_RES) {
                     mWiFiState.setText("STA STATE: Connected");
-                    mSetConf.setText("Disconnect");
+                    mSetConfAndConnect.setText("Disconnect");
                     remoteDeviceWiFiState = true;
                     mRemoteDeviceWiFiState = WIFI_STATE_CONNECTED;
                     mWiFiManager.setText("CLOSE");
@@ -815,19 +925,19 @@ public class WiFiManagerFragment extends Fragment {
                     int state = value[2];
                     if (state == 0x00) {
                         mWiFiState.setText("STA STATE: Closed");
-                        mSetConf.setText("Connect");
+                        mSetConfAndConnect.setText("Connect");
                         remoteDeviceWiFiState = false;
                         mRemoteDeviceWiFiState = WIFI_STATE_CLOSED;
                         mWiFiManager.setText("OPEN");
                     } else {
                         mWiFiState.setText("STA STATE: Ready");
-                        mSetConf.setText("Connect");
+                        mSetConfAndConnect.setText("Connect");
                         remoteDeviceWiFiState = true;
                         mRemoteDeviceWiFiState = WIFI_STATE_READY;
                         mWiFiManager.setText("CLOSE");
                         if (state == 0x04) {
                             mWiFiState.setText("STA STATE: Connected");
-                            mSetConf.setText("Disconnect");
+                            mSetConfAndConnect.setText("Disconnect");
                             sendGetConfInfoCmd();
                             ifConnectedWiFi = true;
                             mRemoteDeviceWiFiState = WIFI_STATE_CONNECTED;
@@ -979,7 +1089,7 @@ public class WiFiManagerFragment extends Fragment {
 /*        System.arraycopy(value, 0, secTypeDataByte, 0, 2);
         int secTypeData = Utils.bytes2int_two(secTypeDataByte);*/
         int secTypeData = 3;
-        String secTypeStr = "";
+        String secTypeStr;
 
         switch (secTypeData) {
             case WifiSecType.WIFI_SECURITY_OPEN: {
@@ -1064,20 +1174,66 @@ public class WiFiManagerFragment extends Fragment {
 
     private void addressShowInit(byte[] value) {
         if (value == null) {
-            mWiFiRouName.setText("ROUTER BSSID: ---");
-            mWiFiRouAddress.setText("ROUTER SSID: xx:xx:xx:xx:xx:xx");
-            mWiFiStaAddress.setText("STA MAC: xx:xx:xx:xx:xx:xx");
+            mWiFiRouSecType.setText("");
+            mWiFiRouName.setText("ROUTER SSID: xx:xx:xx:xx:xx:xx");
+            mWiFiRouAddress.setText("ROUTER BSSID: ---");
+            mWiFiStaMac.setText("STA MAC: xx:xx:xx:xx:xx:xx");
             mWiFiApAddress.setText("AP BSSID: xx:xx:xx:xx:xx:xx");
             mWiFiApState.setText("AP STATE: Closed");
             mWiFiState.setText("STA STATE: Closed");
-            mSetConf.setText("Connect");
+            mSetConfAndConnect.setText("Connect");
 //            mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
         } else {
 //STA and ROUTER MESSAGE
             //sta bssid
             byte[] staAddrByte = new byte[6];
             System.arraycopy(value, 3, staAddrByte, 0, 6);
-            mWiFiStaAddress.setText("STA MAC: " + Utils.ByteArrayToMacStr(staAddrByte));
+            mWiFiStaMac.setText("STA MAC: " + Utils.ByteArrayToMacStr(staAddrByte));
+
+//            TODO: get data from wifimanagerserive.c for router sectype.
+            byte[] secTypeDataByte = new byte[2];
+/*          System.arraycopy(value, 0, secTypeDataByte, 0, 2);
+            int secTypeData = Utils.bytes2int_two(secTypeDataByte);*/
+            int secTypeData = 3;
+            String secTypeStr;
+
+            switch (secTypeData) {
+                case WifiSecType.WIFI_SECURITY_OPEN: {
+                    secTypeStr = "OPEN";
+                }
+                break;
+                case WifiSecType.WIFI_SECURITY_PSK: {
+                    secTypeStr = "WPA/WPA2";
+                }
+                break;
+                case WifiSecType.WIFI_SECURITY_OTHERS: {
+                    secTypeStr = "OTHERS";
+                }
+                break;
+                default: {
+                    secTypeStr = "ERROR";
+                    Log.e(TAG, "secTypeData error --> " + secTypeData);
+                }
+            }
+            Log.d(TAG, "secTypeStr --> " + secTypeStr);
+            mWiFiRouSecType.setText(secTypeStr + "-");
+
+//            TODO: get data from wifimanagerserive.c for AutorunInterval value.
+//            get AutorunInterval value.
+/*
+            byte[] autorunIntervalByte = new byte[4];
+            System.arraycopy(value, 3, autorunIntervalByte, 0, 4);
+            int autorunIntervalValue = Utils.bytes2int(autorunIntervalByte);
+*/
+            byte[] autorunIntervalByte = {0x00, 0x01, 0x00, 0x00};
+            mAutorunIntervalValue = Utils.bytes2int(autorunIntervalByte);
+            Log.e(TAG, "mAutorunIntervalValue --> " + mAutorunIntervalValue);
+            if (mAutorunIntervalValue >= 0) {
+                mAutorunInterval.setText("" + mAutorunIntervalValue);
+            } else {
+                mAutorunInterval.setText("");
+            }
+
             //router ssid len
             byte[] staSsidLenByte = new byte[2];
             System.arraycopy(value, 9, staSsidLenByte, 0, 2);
@@ -1087,9 +1243,9 @@ public class WiFiManagerFragment extends Fragment {
             if (routerSsidLen != 0) {
                 byte[] routerSsidByte = new byte[routerSsidLen];
                 System.arraycopy(value, 11, routerSsidByte, 0, routerSsidLen);
-                mWiFiRouName.setText("ROUTER BSSID: " + Utils.byteArrayToStr(routerSsidByte));
+                mWiFiRouName.setText("ROUTER SSID: " + Utils.byteArrayToStr(routerSsidByte));
             } else {
-                mWiFiRouName.setText("ROUTER BSSID: ---");
+                mWiFiRouName.setText("ROUTER SSID: xx:xx:xx:xx:xx:xx");
             }
             //router bssid len
             byte[] routerBSsidLenByte = new byte[2];
@@ -1100,9 +1256,9 @@ public class WiFiManagerFragment extends Fragment {
                 //sta bssid
                 byte[] routerBSsidByte = new byte[6];
                 System.arraycopy(value, 13 + routerSsidLen, routerBSsidByte, 0, 6);
-                mWiFiRouAddress.setText("ROUTER SSID: " + Utils.ByteArrayToMacStr(routerBSsidByte));
+                mWiFiRouAddress.setText("ROUTER BSSID: " + Utils.ByteArrayToMacStr(routerBSsidByte));
             } else {
-                mWiFiRouAddress.setText("ROUTER SSID: xx:xx:xx:xx:xx:xx");
+                mWiFiRouAddress.setText("ROUTER BSSID: ---");
             }
 //AP MESSAGE
             //ap state
