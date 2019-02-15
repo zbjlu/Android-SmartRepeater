@@ -61,6 +61,8 @@ public class WiFiManagerFragment extends Fragment {
     private static final byte WIFI_SCAN_STATE_RES = (byte) 0x89;
     private static final byte WIFI_SCAN_RESULT_RES = (byte) 0x8A;
     private static final byte DELETE_AP_RESULT_RES = (byte) 0x8C;
+    private static final byte AUTORUN_RESULT_RES = (byte) 0x8D;
+    private static final byte SET_ACL_RESULT_RES = (byte) 0x8E;
 
     private static final byte CMD_STATE_SUCCESSFUL_RES = (byte) 0x00;
     private static final byte CMD_STATE_FAILED_RES = (byte) 0x01;
@@ -896,9 +898,9 @@ public class WiFiManagerFragment extends Fragment {
     }
 
     private void wifiManagerNotify(byte[] value) {
-        byte opcocde = value[0];
-        Log.d(TAG, "wifiManagerNotify:opcocde --> " + (char)(opcocde & 0xFF));
-        switch (opcocde) {
+        byte opcode = value[0];
+        Log.d(TAG, "wifiManagerNotify:opcode --> " + (char)(opcode & 0xFF));
+        switch (opcode) {
             case OPEN_WIFI_RES: {
                 byte result = value[1];
                 if (result == CMD_STATE_SUCCESSFUL_RES) {
@@ -1071,7 +1073,7 @@ public class WiFiManagerFragment extends Fragment {
                 byte result = value[1];
                 if (result == CMD_STATE_SUCCESSFUL_RES) {
                     try {
-                        updateApClientList(value);
+                        updateApClientList(DELETE_AP_RESULT_RES, value);
                     } catch (Exception e) {
                         Log.e(TAG, "DELETE_AP_RESULT_RES ERROR --> " + e);
                     }
@@ -1080,8 +1082,36 @@ public class WiFiManagerFragment extends Fragment {
                 }
             }
             break;
-            default: {
+            case AUTORUN_RESULT_RES: {
+                byte result = value[1];
+                if (result == CMD_STATE_SUCCESSFUL_RES) {
+                    try {
+                        addressShowInit(value);
+                    } catch (Exception e) {
+                        Log.e(TAG, "AUTORUN_RESULT_RES ERROR --> " + e);
+                    }
+                } else if (result == CMD_STATE_FAILED_RES) {
+                    addressShowInit(null);
+                    Toast.makeText(getContext(), "get State Failed...", Toast.LENGTH_LONG).show();
+                }
+            }
+            break;
+            case SET_ACL_RESULT_RES: {
+                byte result = value[1];
+                if (result == CMD_STATE_SUCCESSFUL_RES) {
+                    try {
+                        updateApClientList(SET_ACL_RESULT_RES, value);
+                    } catch (Exception e) {
+                        Log.e(TAG, "SET_ACL_RESULT_RES ERROR --> " + e);
+                    }
+                } else if (result == CMD_STATE_FAILED_RES) {
+                    Toast.makeText(getContext(), "ap block/unblock mac failed...", Toast.LENGTH_LONG).show();
+                }
+            }
+            break;
 
+            default: {
+                Log.e(TAG, "opcode error --> " + opcode);
             }
             break;
         }
@@ -1355,21 +1385,61 @@ public class WiFiManagerFragment extends Fragment {
         }
     }
 
-    private void updateApClientList(byte[] value) {
+    private void updateApClientList(byte cause, byte[] value) {
         byte type = value[2];
-        Log.e(TAG, "type --> " + type);
+        Log.e(TAG, "update cause --> " + cause + "\ttype --> " + type);
         byte[] bssidByte = new byte[6];
         System.arraycopy(value, 3, bssidByte, 0, 6);
         String bssidStr = Utils.ByteArrayToMacStr(bssidByte);
         Log.e(TAG, "bssidStr --> " + bssidStr);
-        if (type == 0x00) {
-            Log.d(TAG, "ap client block --> " + bssidStr);
-            mBlockClientStrList.remove(bssidStr);
-            mUnBlockClientStrList.add(bssidStr);
-        } else if (type == 0x01) {
-            Log.d(TAG, "ap client unblock --> " + bssidStr);
-            mUnBlockClientStrList.remove(bssidStr);
-            mBlockClientStrList.add(bssidStr);
+
+        switch (cause) {
+            case DELETE_AP_RESULT_RES: {
+                if (type == 0x00) {
+                    Log.d(TAG, "ap client block --> " + bssidStr);
+                    mBlockClientStrList.remove(bssidStr);
+                } else if (type == 0x01) {
+                    Log.d(TAG, "ap client unblock --> " + bssidStr);
+                    mBlockClientStrList.add(bssidStr);
+                }
+            }
+            break;
+            case SET_ACL_RESULT_RES: {
+                switch (type) {
+                    case WifiAclSubCmd.WIFI_ACL_SUBCMD_BLOCK: {
+                        mUnBlockClientStrList.add(bssidStr);
+                    }
+                    break;
+                    case WifiAclSubCmd.WIFI_ACL_SUBCMD_UNBLOCK: {
+                        mUnBlockClientStrList.remove(bssidStr);
+                    }
+                    break;
+                    case WifiAclSubCmd.WIFI_ACL_SUBCMD_BLOCK_ALL: {
+/*
+                        int appClientNum = apClientLen / 6;
+                        for (int i = 0; i < appClientNum; i++) {
+                            byte[] apClientAddrByte = new byte[6];
+                            System.arraycopy(value, 22 + routerSsidLen + routerBSsidLen + 6 * i, apClientAddrByte, 0, 6);
+                            String apClientAddrStr = Utils.ByteArrayToMacStr(apClientAddrByte);
+                            mBlockClientStrList.add(apClientAddrStr);
+                        }
+*/
+                        mUnBlockClientStrList.addAll(mBlockClientStrList);
+                    }
+                    break;
+                    case WifiAclSubCmd.WIFI_ACL_SUBCMD_UNBLOCK_ALL: {
+                        mUnBlockClientStrList.clear();
+                    }
+                    break;
+                    default: {
+                        Log.e(TAG, "set acl subcmd type error --> " + type);
+                    }
+                }
+            }
+            break;
+            default: {
+                Log.e(TAG, "cause error --> " + cause);
+            }
         }
         clientListUpdate();
     }
