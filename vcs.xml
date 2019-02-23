@@ -10,8 +10,12 @@
           <option name="url" value="https://github.com/zbjlu/Android-SmartRepeater.git" />
           <option name="userName" value="" />
         </UrlAndUserName>
+        <UrlAndUserName>
+          <option name="url" value="https://github.com/zbjlu/flutter_blue.git" />
+          <option name="userName" value="" />
+        </UrlAndUserName>
       </list>
     </option>
-    <option name="cloneParentDir" value="$USER_HOME$/works/projects/AndroidStudioProjects" />
+    <option name="cloneParentDir" value="$USER_HOME$/works/projects" />
   </component>
 </application>
