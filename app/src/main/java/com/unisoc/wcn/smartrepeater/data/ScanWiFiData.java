@@ -16,4 +16,9 @@ public class ScanWiFiData {
      */
     public String BSSID;
 
+    /**
+     * The security type of the access point.
+     */
+    public String SECTYPE;
+
 }
