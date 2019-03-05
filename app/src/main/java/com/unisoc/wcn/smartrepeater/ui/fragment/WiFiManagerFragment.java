@@ -129,6 +129,7 @@ public class WiFiManagerFragment extends Fragment {
     private TextView mWiFiRouName = null;
     private TextView mWiFiRouAddress = null;
     private TextView mWiFiStaMac = null;
+    private TextView mWiFiApSecType = null;
     private TextView mWiFiApAddress = null;
     private TextView mWiFiApState = null;
 
@@ -318,6 +319,7 @@ public class WiFiManagerFragment extends Fragment {
         mWiFiRouName = (TextView) view.findViewById(R.id.router_ssid);
         mWiFiRouSecType = (TextView) view.findViewById(R.id.router_sectype);
         mWiFiRouAddress = (TextView) view.findViewById(R.id.router_bssid);
+        mWiFiApSecType = (TextView) view.findViewById(R.id.wifi_ap_sectype);
         mWiFiApAddress = (TextView) view.findViewById(R.id.wifi_ap_address);
         mWiFiApState = (TextView) view.findViewById(R.id.wifi_ap_state);
 
@@ -351,8 +353,14 @@ public class WiFiManagerFragment extends Fragment {
 //                }
                 //for mScanWiFiDataList
                 if (mScanWiFiDataList.size() > 0) {
+                    // show ssid in fragment.
                     String fiwiInfo = mScanWiFiDataList.get(mChoicedWiFi).SSID;
                     mWiFiSsid.setText(fiwiInfo);
+                    // show security type in fragment.
+                    String secTypeInfo = mScanWiFiDataList.get(mChoicedWiFi).SECTYPE;
+                    Log.e(TAG," get secTypeInfo for mScanWiFiDataList --> " + secTypeInfo);
+                    mWiFiRouSecType.setText(secTypeInfo + "-");
+                    mWiFiApSecType.setText(secTypeInfo + "-");
                 }
             }
 
@@ -1174,11 +1182,20 @@ public class WiFiManagerFragment extends Fragment {
         String ssidData = Utils.byteArrayToStr(ssidDataByte);
         Log.d(TAG, "ssidData --> " + ssidData);
 
+        //get bssid
+        byte[] bssidDataLenByte = new byte[2];
+        System.arraycopy(value, 6 + ssidDataLen, bssidDataLenByte, 0, 2);
+        int bssidDataLen = Utils.bytes2int_two(bssidDataLenByte);
+        Log.d(TAG, "bssidDataLen --> " + bssidDataLen);
+        byte[] bssidDataByte = new byte[bssidDataLen];
+        System.arraycopy(value, 8 + ssidDataLen, bssidDataByte, 0, bssidDataLen);
+        String bssidData = Utils.ByteArrayToMacStr(bssidDataByte);
+//        String bssidData = Utils.byteArrayToStr(bssidDataByte);
+        Log.d(TAG, "bssidData --> " + bssidData);
+
         //get secType
-        byte[] secTypeDataByte = new byte[2];
-/*        System.arraycopy(value, 0, secTypeDataByte, 0, 2);
-        int secTypeData = Utils.bytes2int_two(secTypeDataByte);*/
-        int secTypeData = 3;
+        byte secTypeData = value[8 + ssidDataLen + bssidDataLen];
+        Log.d(TAG, "secTypeData --> " + secTypeData);
         String secTypeStr;
 
         switch (secTypeData) {
@@ -1201,23 +1218,13 @@ public class WiFiManagerFragment extends Fragment {
         }
         Log.d(TAG, "secTypeStr --> " + secTypeStr);
 
-        //get bssid
-        byte[] bssidDataLenByte = new byte[2];
-        System.arraycopy(value, 6 + ssidDataLen, bssidDataLenByte, 0, 2);
-        int bssidDataLen = Utils.bytes2int_two(bssidDataLenByte);
-        Log.d(TAG, "bssidDataLen --> " + bssidDataLen);
-        byte[] bssidDataByte = new byte[bssidDataLen];
-        System.arraycopy(value, 8 + ssidDataLen, bssidDataByte, 0, bssidDataLen);
-        String bssidData = Utils.ByteArrayToMacStr(bssidDataByte);
-//        String bssidData = Utils.byteArrayToStr(bssidDataByte);
-        Log.d(TAG, "bssidData --> " + bssidData);
-
         String wifiMess = ssidData + "(" + secTypeStr + ")" + "\n" + bssidData;
         if (!wifiList.contains(wifiMess)) {
             ScanWiFiData mScanWifiMess = new ScanWiFiData();
             try {
                 mScanWifiMess.SSID = ssidData;
                 mScanWifiMess.BSSID = bssidData;
+                mScanWifiMess.SECTYPE = secTypeStr;
                 mScanWiFiDataList.add(mScanWifiMess);
                 wifiList.add(wifiMess);
             } catch (Exception e) {
@@ -1268,6 +1275,7 @@ public class WiFiManagerFragment extends Fragment {
             mWiFiRouName.setText("ROUTER SSID: xx:xx:xx:xx:xx:xx");
             mWiFiRouAddress.setText("ROUTER BSSID: ---");
             mWiFiStaMac.setText("STA MAC: xx:xx:xx:xx:xx:xx");
+            mWiFiApSecType.setText("");
             mWiFiApAddress.setText("AP BSSID: xx:xx:xx:xx:xx:xx");
             mWiFiApState.setText("AP STATE: Closed");
             mWiFiState.setText("STA STATE: Closed");
@@ -1279,50 +1287,6 @@ public class WiFiManagerFragment extends Fragment {
             byte[] staAddrByte = new byte[6];
             System.arraycopy(value, 3, staAddrByte, 0, 6);
             mWiFiStaMac.setText("STA MAC: " + Utils.ByteArrayToMacStr(staAddrByte));
-
-//            TODO: get data from wifimanagerserive.c for router sectype.
-            byte[] secTypeDataByte = new byte[2];
-/*          System.arraycopy(value, 0, secTypeDataByte, 0, 2);
-            int secTypeData = Utils.bytes2int_two(secTypeDataByte);*/
-            int secTypeData = 3;
-            String secTypeStr;
-
-            switch (secTypeData) {
-                case WifiSecType.WIFI_SECURITY_OPEN: {
-                    secTypeStr = "OPEN";
-                }
-                break;
-                case WifiSecType.WIFI_SECURITY_PSK: {
-                    secTypeStr = "WPA/WPA2";
-                }
-                break;
-                case WifiSecType.WIFI_SECURITY_OTHERS: {
-                    secTypeStr = "OTHERS";
-                }
-                break;
-                default: {
-                    secTypeStr = "ERROR";
-                    Log.e(TAG, "secTypeData error --> " + secTypeData);
-                }
-            }
-            Log.d(TAG, "secTypeStr --> " + secTypeStr);
-            mWiFiRouSecType.setText(secTypeStr + "-");
-
-//            TODO: get data from wifimanagerserive.c for AutorunInterval value.
-//            get AutorunInterval value.
-/*
-            byte[] autorunIntervalByte = new byte[4];
-            System.arraycopy(value, 3, autorunIntervalByte, 0, 4);
-            int autorunIntervalValue = Utils.bytes2int(autorunIntervalByte);
-*/
-            byte[] autorunIntervalByte = {0x00, 0x01, 0x00, 0x00};
-            mAutorunIntervalValue = Utils.bytes2int(autorunIntervalByte);
-            Log.e(TAG, "mAutorunIntervalValue --> " + mAutorunIntervalValue);
-            if (mAutorunIntervalValue >= 0) {
-                mAutorunInterval.setText("" + mAutorunIntervalValue);
-            } else {
-                mAutorunInterval.setText("");
-            }
 
             //router ssid len
             byte[] staSsidLenByte = new byte[2];
@@ -1350,6 +1314,23 @@ public class WiFiManagerFragment extends Fragment {
             } else {
                 mWiFiRouAddress.setText("ROUTER BSSID: ---");
             }
+
+//            TODO: get data from wifimanagerserive.c for AutorunInterval value.
+//            get AutorunInterval value.
+/*
+            byte[] autorunIntervalByte = new byte[4];
+            System.arraycopy(value, 3, autorunIntervalByte, 0, 4);
+            int autorunIntervalValue = Utils.bytes2int(autorunIntervalByte);
+*/
+            byte[] autorunIntervalByte = {0x00, 0x01, 0x00, 0x00};
+            mAutorunIntervalValue = Utils.bytes2int(autorunIntervalByte);
+            Log.e(TAG, "mAutorunIntervalValue --> " + mAutorunIntervalValue);
+            if (mAutorunIntervalValue >= 0) {
+                mAutorunInterval.setText("" + mAutorunIntervalValue);
+            } else {
+                mAutorunInterval.setText("");
+            }
+
 //AP MESSAGE
             //ap state
             mRemoteDeviceApState = value[13 + routerSsidLen + routerBSsidLen];
