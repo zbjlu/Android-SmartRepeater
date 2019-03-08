@@ -136,6 +136,8 @@ public class WiFiManagerFragment extends Fragment {
     private Button mSoftApStart = null;
     private Button mCloseRemoteBt = null;
     private Button mStartWifiScan = null;
+    private Button mBlockAllSta = null;
+    private Button munBlockAllSta = null;
 
     private IntentFilter mFilter;
 
@@ -265,11 +267,46 @@ public class WiFiManagerFragment extends Fragment {
         mAutorunDisable.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                    sendSetConfCmd(TimeOutValue.AUTORUN_TIMEOUT_DISABLE);
+                sendSetConfCmd(TimeOutValue.AUTORUN_TIMEOUT_DISABLE);
             }
         });
 
         mApMac = (EditText) view.findViewById(R.id.ap_mac);
+        mBlockAllSta = (Button) view.findViewById(R.id.block_all_sta);
+        mBlockAllSta.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.d(TAG, "delete all ap block client --> ");
+                if (remoteDeviceWiFiState) {
+                    try {
+                        deleteApClientCmd(WifiAclSubCmd.WIFI_ACL_SUBCMD_BLOCK_ALL, null);
+                    } catch (Exception e) {
+                        Log.e(TAG, "delete all ap block client error --> " + e);
+                    }
+                } else {
+                    Toast.makeText(getContext(), "Please Open WiFi of Remote Device First.", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+
+        munBlockAllSta = (Button) view.findViewById(R.id.unblock_all_sta);
+        munBlockAllSta.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                Log.d(TAG, "delete all ap unblock client --> ");
+                if (remoteDeviceWiFiState) {
+                    try {
+                        deleteApClientCmd(WifiAclSubCmd.WIFI_ACL_SUBCMD_UNBLOCK_ALL, null);
+                    } catch (Exception e) {
+                        Log.e(TAG, "delete all ap unblock client error --> " + e);
+                    }
+                } else {
+                    Toast.makeText(getContext(), "Please Open WiFi of Remote Device First.", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+
         mSoftApStart = (Button) view.findViewById(R.id.soft_ap_start);
         mSoftApStart.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -358,7 +395,7 @@ public class WiFiManagerFragment extends Fragment {
                     mWiFiSsid.setText(fiwiInfo);
                     // show security type in fragment.
                     String secTypeInfo = mScanWiFiDataList.get(mChoicedWiFi).SECTYPE;
-                    Log.e(TAG," get secTypeInfo for mScanWiFiDataList --> " + secTypeInfo);
+                    Log.d(TAG, " get secTypeInfo for mScanWiFiDataList --> " + secTypeInfo);
                     mWiFiRouSecType.setText(secTypeInfo + "-");
                     mWiFiApSecType.setText(secTypeInfo + "-");
                 }
@@ -879,14 +916,22 @@ public class WiFiManagerFragment extends Fragment {
 
     private byte[] getDeleteApClientBtBytesGet(String bssid, int subCmd) {
 
-        byte[] bssidBytes = Utils.MacStrToByteArray(bssid);
-        int bssidBytesLen = bssidBytes.length;
+        int bssidBytesLen;
+        byte[] bssidBytes = null;
+
+        if ((subCmd == WifiAclSubCmd.WIFI_ACL_SUBCMD_BLOCK_ALL) || (subCmd == WifiAclSubCmd.WIFI_ACL_SUBCMD_UNBLOCK_ALL)) {
+            bssidBytesLen = -2;
+        } else {
+            bssidBytes = Utils.MacStrToByteArray(bssid);
+            bssidBytesLen = bssidBytes.length;
+        }
+
 
         byte[] subCmdByte = new byte[1];
-        subCmdByte[0] = (byte)(subCmd & 0xff);
+        subCmdByte[0] = (byte) (subCmd & 0xff);
         int subCmdByteLen = subCmdByte.length;
 
-        int sendDataLen = 3 + 2 + bssidBytesLen + subCmdByteLen;
+        int sendDataLen = 3 + 2 + subCmdByteLen + bssidBytesLen;
         byte[] sendDataBytes = new byte[sendDataLen];
 
         //op_code.
@@ -895,19 +940,21 @@ public class WiFiManagerFragment extends Fragment {
         //total_len bytes.
         System.arraycopy(Utils.int2bytes_two(sendDataLen - 3), 0, sendDataBytes, 1, 2);
 
-        //bssidBytes
-        System.arraycopy(Utils.int2bytes_two(bssidBytesLen), 0, sendDataBytes, 3, 2);
-        System.arraycopy(bssidBytes, 0, sendDataBytes, 3 + 2, bssidBytesLen);
-
         //subCmdByte
-        System.arraycopy(subCmdByte, 0, sendDataBytes, 3 + 2 + bssidBytesLen, subCmdByteLen);
+        System.arraycopy(subCmdByte, 0, sendDataBytes, 3, subCmdByteLen);
+
+        //bssidBytes
+        if (bssidBytesLen >= 0) {
+            System.arraycopy(Utils.int2bytes_two(bssidBytesLen), 0, sendDataBytes, 3 + subCmdByteLen, 2);
+            System.arraycopy(bssidBytes, 0, sendDataBytes, 3 + 2 + subCmdByteLen, bssidBytesLen);
+        }
 
         return sendDataBytes;
     }
 
     private void wifiManagerNotify(byte[] value) {
         byte opcode = value[0];
-        Log.d(TAG, "wifiManagerNotify:opcode --> " + (char)(opcode & 0xFF));
+        Log.d(TAG, "wifiManagerNotify:opcode --> " + (char) (opcode & 0xFF));
         switch (opcode) {
             case OPEN_WIFI_RES: {
                 byte result = value[1];
@@ -1029,6 +1076,7 @@ public class WiFiManagerFragment extends Fragment {
                     ifConnectedWiFi = true;
                     mRemoteDeviceWiFiState = WIFI_STATE_CONNECTED;
 //                    mConnectedWiFiMessage.setText(parseConnectedWiFiMess(value));
+                    UpdateConfShow(value);
                 } else if (result == CMD_STATE_FAILED_RES) {
                     ifConnectedWiFi = false;
                     mRemoteDeviceWiFiState = WIFI_STATE_READY;
@@ -1315,22 +1363,6 @@ public class WiFiManagerFragment extends Fragment {
                 mWiFiRouAddress.setText("ROUTER BSSID: ---");
             }
 
-//            TODO: get data from wifimanagerserive.c for AutorunInterval value.
-//            get AutorunInterval value.
-/*
-            byte[] autorunIntervalByte = new byte[4];
-            System.arraycopy(value, 3, autorunIntervalByte, 0, 4);
-            int autorunIntervalValue = Utils.bytes2int(autorunIntervalByte);
-*/
-            byte[] autorunIntervalByte = {0x00, 0x01, 0x00, 0x00};
-            mAutorunIntervalValue = Utils.bytes2int(autorunIntervalByte);
-            Log.e(TAG, "mAutorunIntervalValue --> " + mAutorunIntervalValue);
-            if (mAutorunIntervalValue >= 0) {
-                mAutorunInterval.setText("" + mAutorunIntervalValue);
-            } else {
-                mAutorunInterval.setText("");
-            }
-
 //AP MESSAGE
             //ap state
             mRemoteDeviceApState = value[13 + routerSsidLen + routerBSsidLen];
@@ -1366,12 +1398,168 @@ public class WiFiManagerFragment extends Fragment {
         }
     }
 
+    private void UpdateConfShow(byte[] value) {
+
+        Log.d(TAG, "UpdateConfShow");
+
+        int DataOffset = 0;
+        String bssidData = null;
+
+        byte wifiIfaceTypeByte = value[2];
+        Log.d(TAG, "wifiIfaceTypeByte --> " + wifiIfaceTypeByte);
+
+        byte[] allDataLenByte = new byte[2];
+        System.arraycopy(value, 3, allDataLenByte, 0, 2);
+        int allDataLen = Utils.bytes2int_two(allDataLenByte);
+        Log.d(TAG, "allDataLen --> " + allDataLen);
+
+        //get ssid
+        byte[] ssidDataLenByte = new byte[2];
+        System.arraycopy(value, 5, ssidDataLenByte, 0, 2);
+        int ssidDataLen = Utils.bytes2int_two(ssidDataLenByte);
+        Log.d(TAG, "ssidDataLen --> " + ssidDataLen);
+        byte[] ssidDataByte = new byte[ssidDataLen];
+        System.arraycopy(value, 7, ssidDataByte, 0, ssidDataLen);
+        String ssidData = Utils.byteArrayToStr(ssidDataByte);
+        Log.d(TAG, "ssidData --> " + ssidData);
+
+        if (wifiIfaceTypeByte == 0) { //sta iface
+
+            //get bssid
+            byte[] bssidDataLenByte = new byte[2];
+            System.arraycopy(value, 7 + ssidDataLen, bssidDataLenByte, 0, 2);
+            int bssidDataLen = Utils.bytes2int_two(bssidDataLenByte);
+            Log.d(TAG, "bssidDataLen --> " + bssidDataLen);
+            byte[] bssidDataByte = new byte[bssidDataLen];
+            System.arraycopy(value, 9 + ssidDataLen, bssidDataByte, 0, bssidDataLen);
+            bssidData = Utils.ByteArrayToMacStr(bssidDataByte);
+//        String bssidData = Utils.byteArrayToStr(bssidDataByte);
+            Log.d(TAG, "bssidData --> " + bssidData);
+
+            // set DataOffset for sta iface.
+            DataOffset = 9 + ssidDataLen + bssidDataLen;
+
+        } else if (wifiIfaceTypeByte == 1) { //ap iface
+
+            // set DataOffset for ap iface.
+            DataOffset = 7 + ssidDataLen;
+
+        } else {
+            Toast.makeText(getContext(), "wifi iface type err , that must be sta or ap.", Toast.LENGTH_LONG).show();
+        }
+
+        Log.d(TAG, "DataOffset --> " + DataOffset);
+
+        //get pwd
+        byte[] pwdDataLenByte = new byte[2];
+        System.arraycopy(value, DataOffset, pwdDataLenByte, 0, 2);
+        int pwdDataLen = Utils.bytes2int_two(pwdDataLenByte);
+        Log.d(TAG, "pwdDataLen --> " + pwdDataLen);
+        byte[] pwdDataByte = new byte[pwdDataLen];
+        System.arraycopy(value, 2 + DataOffset, pwdDataByte, 0, pwdDataLen);
+        String pwdData = Utils.byteArrayToStr(pwdDataByte);
+        Log.d(TAG, "pwdData --> " + pwdData);
+
+        //get band
+        byte bandDataByte = value[2 + DataOffset + pwdDataLen];
+        Log.d(TAG, "bandDataByte --> " + bandDataByte);
+
+        //get channel
+        byte channelDataByte = value[2 + DataOffset + pwdDataLen + 1];
+        Log.d(TAG, "channelDataByte --> " + channelDataByte);
+
+        //get security
+        byte securityDataByte = value[2 + DataOffset + pwdDataLen + 2];
+        Log.d(TAG, "securityDataByte --> " + securityDataByte);
+
+        //get autorun interval value.
+        byte[] autorunDataByte = new byte[4];
+        System.arraycopy(value, 2 + DataOffset + pwdDataLen + 3, autorunDataByte, 0, 4);
+        mAutorunIntervalValue = Utils.bytes2int(autorunDataByte);
+        Log.d(TAG, "mAutorunIntervalValue from conf --> " + mAutorunIntervalValue);
+
+        //get all data from wifi mgr service end. now , start parse these data.
+
+        //parse secType
+        String secTypeStr;
+        switch (securityDataByte) {
+            case WifiSecType.WIFI_SECURITY_OPEN: {
+                secTypeStr = "OPEN";
+            }
+            break;
+            case WifiSecType.WIFI_SECURITY_PSK: {
+                secTypeStr = "WPA/WPA2";
+            }
+            break;
+            case WifiSecType.WIFI_SECURITY_OTHERS: {
+                secTypeStr = "OTHERS";
+            }
+            break;
+            default: {
+                secTypeStr = "ERROR";
+                Log.e(TAG, "securityDataByte error --> " + securityDataByte);
+            }
+        }
+        Log.d(TAG, "secTypeStr --> " + secTypeStr);
+
+        if (wifiIfaceTypeByte == 0) { //sta iface
+//STA and ROUTER MESSAGE
+            //router ssid
+            if (ssidDataLen != 0) {
+                mWiFiRouName.setText("ROUTER SSID: " + ssidData);
+            } else {
+                mWiFiRouName.setText("ROUTER SSID: xx:xx:xx:xx:xx:xx");
+            }
+
+            // sta bssid
+            if (bssidData != null || bssidData.length() != 0) {
+                //sta bssid
+                mWiFiRouAddress.setText("ROUTER BSSID: " + bssidData);
+            } else {
+                mWiFiRouAddress.setText("ROUTER BSSID: ---");
+            }
+
+            // sta security type
+            mWiFiRouSecType.setText(secTypeStr + "-");
+
+            // sta autorun interval
+            if (mAutorunIntervalValue >= 0) {
+                mAutorunInterval.setText("" + mAutorunIntervalValue);
+            } else {
+                mAutorunInterval.setText("");
+            }
+
+        } else if (wifiIfaceTypeByte == 1) { //ap iface
+
+// AP MESSAGE
+            //ap ssid
+            if (ssidDataLen != 0) {
+                mApMac.setText("AP SSID: " + ssidData);
+            } else {
+                // nothing to do.
+            }
+
+            //ap security type
+            mWiFiApSecType.setText(secTypeStr + "-");
+
+            // todo: add ap autorun interval code.
+        } else {
+            Toast.makeText(getContext(), "update show fail , wifi iface type err , that must be sta or ap.", Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void updateApClientList(byte cause, byte[] value) {
         byte type = value[2];
-        Log.e(TAG, "update cause --> " + cause + "\ttype --> " + type);
         byte[] bssidByte = new byte[6];
-        System.arraycopy(value, 3, bssidByte, 0, 6);
-        String bssidStr = Utils.ByteArrayToMacStr(bssidByte);
+        String bssidStr = null;
+
+        Log.e(TAG, "update cause --> " + cause + "\ttype --> " + type + " value.length --> " + value.length);
+
+        if (value.length >= 9) {
+            System.arraycopy(value, 3, bssidByte, 0, 6);
+            bssidStr = Utils.ByteArrayToMacStr(bssidByte);
+        }
+
         Log.e(TAG, "bssidStr --> " + bssidStr);
 
         switch (cause) {
@@ -1396,16 +1584,9 @@ public class WiFiManagerFragment extends Fragment {
                     }
                     break;
                     case WifiAclSubCmd.WIFI_ACL_SUBCMD_BLOCK_ALL: {
-/*
-                        int appClientNum = apClientLen / 6;
-                        for (int i = 0; i < appClientNum; i++) {
-                            byte[] apClientAddrByte = new byte[6];
-                            System.arraycopy(value, 22 + routerSsidLen + routerBSsidLen + 6 * i, apClientAddrByte, 0, 6);
-                            String apClientAddrStr = Utils.ByteArrayToMacStr(apClientAddrByte);
-                            mBlockClientStrList.add(apClientAddrStr);
-                        }
-*/
+
                         mUnBlockClientStrList.addAll(mBlockClientStrList);
+                        mBlockClientStrList.clear();
                     }
                     break;
                     case WifiAclSubCmd.WIFI_ACL_SUBCMD_UNBLOCK_ALL: {
