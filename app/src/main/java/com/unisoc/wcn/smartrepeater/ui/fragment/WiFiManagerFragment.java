@@ -254,6 +254,18 @@ public class WiFiManagerFragment extends Fragment {
         mAutorunEnable.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+
+                // get autorun interval value from mAutorunInterval.
+                String autorunValueStr = mAutorunInterval.getText().toString().trim();
+
+                if (autorunValueStr.isEmpty()) {
+                    Toast.makeText(getContext(), "Autorun text value null ", Toast.LENGTH_LONG).show();
+                } else {
+                    mAutorunIntervalValue = Integer.parseInt(autorunValueStr);
+                }
+
+                Log.e(TAG, "autorunValueStr --> " + autorunValueStr + "　sendSetConfCmd param mAutorunIntervalValue --> " + mAutorunIntervalValue);
+
                 if (mAutorunIntervalValue >= 0) {
                     sendSetConfCmd(mAutorunIntervalValue);
                 } else {
@@ -567,35 +579,26 @@ public class WiFiManagerFragment extends Fragment {
         String ssid;
         String bssid;
         String password;
-        // for mWiFiResultList
-//        if (mWiFiResultList.size() == 0) {
-//            Log.e(TAG, "ssidAndPassSubmit error --> mWiFiResultList.size() == 0");
-//            ssid = mWiFiSsid.getText().toString().trim();
-//            bssid = "";
-//            password = mWiFiPassword.getText().toString().trim();
-//        } else {
-//            String showSsid = mWiFiSsid.getText().toString().trim();
-//            ssid = mWiFiResultList.get(mChoicedWiFi).SSID;
-//            if (showSsid.equals(ssid)) {
-//                bssid = mWiFiResultList.get(mChoicedWiFi).BSSID;
-//            } else {
-//                bssid = "";
-//            }
-//            password = mWiFiPassword.getText().toString().trim();
-//        }
+        String secTypeStr;
+        byte secTypeData;
+
         //for mScanWiFiDataList
         if (mScanWiFiDataList.size() == 0) {
             Log.e(TAG, "ssidAndPassSubmit error --> mScanWiFiDataList.size() == 0");
             ssid = mWiFiSsid.getText().toString().trim();
             bssid = "";
             password = mWiFiPassword.getText().toString().trim();
+            secTypeStr = "";
         } else {
             String showSsid = mWiFiSsid.getText().toString().trim();
             ssid = mScanWiFiDataList.get(mChoicedWiFi).SSID;
             if (showSsid.equals(ssid)) {
                 bssid = mScanWiFiDataList.get(mChoicedWiFi).BSSID;
+                // sta security type
+                secTypeStr = mScanWiFiDataList.get(mChoicedWiFi).SECTYPE;
             } else {
                 bssid = "";
+                secTypeStr = "";
             }
             password = mWiFiPassword.getText().toString().trim();
         }
@@ -603,12 +606,37 @@ public class WiFiManagerFragment extends Fragment {
             Toast.makeText(getContext(), "SSID and BSSID both are NULL.", Toast.LENGTH_LONG).show();
             return;
         }
-        Log.d(TAG, "ssid --> " + ssid + "; bssid --> " + bssid + "; password --> " + password);
+
+        Log.d(TAG, "ssid --> " + ssid + "; bssid --> " + bssid + "; password --> "
+                + password + "; secTypeStr --> " + secTypeStr + "; mAutorunIntervalValue --> " + mAutorunIntervalValue);
         String bssidSend = bssid.replace(":", "");
+
+        //parse secTypeStr.
+        secTypeData = 0;
+        if (secTypeStr.isEmpty()) {
+            Log.e(TAG, "secTypeStr -->　null ");
+        } else {
+            if (secTypeStr.equals("OPEN"))
+                secTypeData = WifiSecType.WIFI_SECURITY_OPEN;
+            else if (secTypeStr.equals("WPA/WPA2"))
+                secTypeData = WifiSecType.WIFI_SECURITY_PSK;
+            else if (secTypeStr.equals("OTHERS"))
+                secTypeData = WifiSecType.WIFI_SECURITY_OTHERS;
+            else if (secTypeStr.equals("ERROR")) {
+                Log.e(TAG, "secTypeData error --> " + secTypeStr);
+            } else {
+                Log.e(TAG, "secTypeData exception --> " + secTypeStr);
+            }
+        }
+
+        Log.d(TAG, "secTypeStr -->　" + secTypeStr + " secTypeData --> " + secTypeData);
+
         byte[] ssidBytes = Utils.strToByteArray(ssid);
         byte[] bssidBytes = Utils.hexStrToByteArray(bssidSend);
         byte[] passBytes = Utils.strToByteArray(password);
-        byte[] sendDataBytes = ssidAndPassBytesGet(ssidBytes, bssidBytes, passBytes);
+        byte[] autoValueBytes = Utils.int2bytes(mAutorunIntervalValue);
+
+        byte[] sendDataBytes = ssidAndPassBytesGet(ssidBytes, bssidBytes, passBytes, secTypeData, autoValueBytes);
         BluetoothLeService mBluetoothLeService = BluetoothLeService.getService();
         if (mBluetoothLeService != null) {
             if (mBluetoothLeService.getSelectedDevice() != null) {
@@ -668,21 +696,26 @@ public class WiFiManagerFragment extends Fragment {
         String ssid;
         String bssid;
         String password;
+        String secTypeStr;
+        byte secTypeData;
 
         Log.d(TAG, "sendSetConfCmd IntervalValue --> " + IntervalValue);
 
         if (mScanWiFiDataList.size() == 0) {
-            Log.e(TAG, "ssidAndPassSubmit error --> mScanWiFiDataList.size() == 0");
+            Log.e(TAG, "sendSetConfCmd error --> mScanWiFiDataList.size() == 0");
             ssid = mWiFiSsid.getText().toString().trim();
             bssid = "";
             password = mWiFiPassword.getText().toString().trim();
+            secTypeStr = "";
         } else {
             String showSsid = mWiFiSsid.getText().toString().trim();
             ssid = mScanWiFiDataList.get(mChoicedWiFi).SSID;
             if (showSsid.equals(ssid)) {
                 bssid = mScanWiFiDataList.get(mChoicedWiFi).BSSID;
+                secTypeStr = mScanWiFiDataList.get(mChoicedWiFi).SECTYPE;
             } else {
                 bssid = "";
+                secTypeStr = "";
             }
             password = mWiFiPassword.getText().toString().trim();
         }
@@ -690,13 +723,35 @@ public class WiFiManagerFragment extends Fragment {
             Toast.makeText(getContext(), "SSID and BSSID both are NULL.", Toast.LENGTH_LONG).show();
             return;
         }
-        Log.d(TAG, "ssid --> " + ssid + "; bssid --> " + bssid + "; password --> " + password);
+
+        Log.d(TAG, "ssid --> " + ssid + "; bssid --> " + bssid + "; password --> "
+                + password + "; secTypeStr --> " + secTypeStr + "; IntervalValue --> " + IntervalValue);
+
         String bssidSend = bssid.replace(":", "");
+
+        //parse secTypeStr.
+        secTypeData = 0;
+        if (secTypeStr.isEmpty()) {
+            Log.d(TAG, "secTypeStr -->　null ");
+        } else {
+            if (secTypeStr.equals("OPEN"))
+                secTypeData = WifiSecType.WIFI_SECURITY_OPEN;
+            else if (secTypeStr.equals("WPA/WPA2"))
+                secTypeData = WifiSecType.WIFI_SECURITY_PSK;
+            else if (secTypeStr.equals("OTHERS"))
+                secTypeData = WifiSecType.WIFI_SECURITY_OTHERS;
+            else if (secTypeStr.equals("ERROR")) {
+                Log.e(TAG, "secTypeData error --> " + secTypeStr);
+            } else {
+                Log.e(TAG, "secTypeData exception --> " + secTypeStr);
+            }
+        }
+
         byte[] ssidBytes = Utils.strToByteArray(ssid);
         byte[] bssidBytes = Utils.hexStrToByteArray(bssidSend);
         byte[] passBytes = Utils.strToByteArray(password);
         byte[] IntervalBytes = Utils.int2bytes(IntervalValue);
-        byte[] sendDataBytes = setConfCmdBytesGet(ssidBytes, bssidBytes, passBytes, IntervalBytes);
+        byte[] sendDataBytes = setConfCmdBytesGet(ssidBytes, bssidBytes, passBytes, secTypeData, IntervalBytes);
 
         BluetoothLeService mBluetoothLeService = BluetoothLeService.getService();
         if (mBluetoothLeService != null) {
@@ -823,13 +878,13 @@ public class WiFiManagerFragment extends Fragment {
         return sendDataBytes;
     }
 
-    private byte[] setConfCmdBytesGet(byte[] ssidBytes, byte[] bSsidBytes, byte[] passBytes, byte[] IntervalBytes) {
+    private byte[] setConfCmdBytesGet(byte[] ssidBytes, byte[] bSsidBytes, byte[] passBytes, byte secTypeByte, byte[] IntervalBytes) {
         int ssidBytesLen = ssidBytes.length;
         int bSsidBytesLen = bSsidBytes.length;
         int passBytesLen = passBytes.length;
         int intervalBytesLen = IntervalBytes.length;
 
-        int sendDataLen = 9 + ssidBytesLen + bSsidBytesLen + passBytesLen + intervalBytesLen;
+        int sendDataLen = 9 + ssidBytesLen + bSsidBytesLen + passBytesLen + 1 + intervalBytesLen;
         byte[] sendDataBytes = new byte[sendDataLen];
         sendDataBytes[0] = 0x0D;
         System.arraycopy(Utils.int2bytes_two(sendDataLen - 3), 0, sendDataBytes, 1, 2);
@@ -842,17 +897,21 @@ public class WiFiManagerFragment extends Fragment {
         //passwd
         System.arraycopy(Utils.int2bytes_two(passBytesLen), 0, sendDataBytes, ssidBytesLen + bSsidBytesLen + 7, 2);
         System.arraycopy(passBytes, 0, sendDataBytes, ssidBytesLen + bSsidBytesLen + 9, passBytesLen);
+        //security type
+        sendDataBytes[ssidBytesLen + bSsidBytesLen + passBytesLen + 9] = secTypeByte;
         //interval
-        System.arraycopy(IntervalBytes, 0, sendDataBytes, ssidBytesLen + bSsidBytesLen + passBytesLen + 9, intervalBytesLen);
+        System.arraycopy(IntervalBytes, 0, sendDataBytes, ssidBytesLen + bSsidBytesLen + passBytesLen + 9 + 1, intervalBytesLen);
 
         return sendDataBytes;
     }
 
-    private byte[] ssidAndPassBytesGet(byte[] ssidBytes, byte[] bSsidBytes, byte[] passBytes) {
+    private byte[] ssidAndPassBytesGet(byte[] ssidBytes, byte[] bSsidBytes, byte[] passBytes, byte secTypeByte, byte[] autovalueBytes) {
         int ssidBytesLen = ssidBytes.length;
         int bSsidBytesLen = bSsidBytes.length;
         int passBytesLen = passBytes.length;
-        int sendDataLen = 9 + ssidBytesLen + bSsidBytesLen + passBytesLen;
+        int autovalueBytesLen = autovalueBytes.length;
+
+        int sendDataLen = 9 + ssidBytesLen + bSsidBytesLen + passBytesLen + 1 + autovalueBytesLen;
         byte[] sendDataBytes = new byte[sendDataLen];
         sendDataBytes[0] = 0x03;
         System.arraycopy(Utils.int2bytes_two(sendDataLen - 3), 0, sendDataBytes, 1, 2);
@@ -865,6 +924,11 @@ public class WiFiManagerFragment extends Fragment {
         //passwd
         System.arraycopy(Utils.int2bytes_two(passBytesLen), 0, sendDataBytes, ssidBytesLen + bSsidBytesLen + 7, 2);
         System.arraycopy(passBytes, 0, sendDataBytes, ssidBytesLen + bSsidBytesLen + 9, passBytesLen);
+        //security type
+        sendDataBytes[9 + ssidBytesLen + bSsidBytesLen + passBytesLen] = secTypeByte;
+        //autointerval value
+        System.arraycopy(autovalueBytes, 0, sendDataBytes, 9 + ssidBytesLen + bSsidBytesLen + passBytesLen + 1, autovalueBytesLen);
+
         return sendDataBytes;
     }
 
@@ -1141,14 +1205,10 @@ public class WiFiManagerFragment extends Fragment {
             case AUTORUN_RESULT_RES: {
                 byte result = value[1];
                 if (result == CMD_STATE_SUCCESSFUL_RES) {
-                    try {
-                        addressShowInit(value);
-                    } catch (Exception e) {
-                        Log.e(TAG, "AUTORUN_RESULT_RES ERROR --> " + e);
-                    }
+                    Log.d(TAG, "AUTORUN_RESULT_RES Success --> ");
+                    sendGetConfInfoCmd();
                 } else if (result == CMD_STATE_FAILED_RES) {
-                    addressShowInit(null);
-                    Toast.makeText(getContext(), "get State Failed...", Toast.LENGTH_LONG).show();
+                    Toast.makeText(getContext(), "AUTORUN_RESULT_RES Failed...", Toast.LENGTH_LONG).show();
                 }
             }
             break;
