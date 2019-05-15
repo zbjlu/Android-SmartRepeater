@@ -95,8 +95,8 @@ public class WiFiManagerFragment extends Fragment {
     @Retention(RetentionPolicy.SOURCE)
 
     private @interface TimeOutValue {
-        int AUTORUN_TIMEOUT_DISABLE = -1;
-        int AUTORUN_TIMEOUT_ENABLE = 0;
+        int AUTORUN_TIMEOUT_DISABLE = 0;
+        int AUTORUN_TIMEOUT_ENABLE = 1;
     }
 
     @IntDef({
@@ -266,7 +266,7 @@ public class WiFiManagerFragment extends Fragment {
 
                 Log.e(TAG, "autorunValueStr --> " + autorunValueStr + "　sendSetConfCmd param mAutorunIntervalValue --> " + mAutorunIntervalValue);
 
-                if (mAutorunIntervalValue >= 0) {
+                if (mAutorunIntervalValue > 0) {
                     sendSetConfCmd(mAutorunIntervalValue);
                 } else {
                     Toast.makeText(getContext(), "Autorun Enable Error. mAutorunIntervalValue: " + mAutorunIntervalValue, Toast.LENGTH_LONG).show();
@@ -1116,12 +1116,16 @@ public class WiFiManagerFragment extends Fragment {
                         remoteDeviceWiFiState = true;
                         mRemoteDeviceWiFiState = WIFI_STATE_READY;
                         mWiFiManager.setText("CLOSE");
-                        if (state == 0x04) {
-                            mWiFiState.setText("STA STATE: Connected");
-                            mSetConfAndConnect.setText("Disconnect");
-                            sendGetConfInfoCmd();
-                            ifConnectedWiFi = true;
-                            mRemoteDeviceWiFiState = WIFI_STATE_CONNECTED;
+                        if (state == 0x05) {
+                            try {
+                                mWiFiState.setText("STA STATE: Connected");
+                                mSetConfAndConnect.setText("Disconnect");
+                                sendGetConfInfoCmd();
+                                ifConnectedWiFi = true;
+                                mRemoteDeviceWiFiState = WIFI_STATE_CONNECTED;
+                            } catch (Exception e) {
+                                Log.e(TAG, "Connected ERROR --> " + e);
+                            }
                         } else {
                             ifConnectedWiFi = false;
 //                            mConnectedWiFiMessage.setText("CONNECTED WIFI: ---");
@@ -1567,8 +1571,13 @@ public class WiFiManagerFragment extends Fragment {
             //router ssid
             if (ssidDataLen != 0) {
                 mWiFiRouName.setText("ROUTER SSID: " + ssidData);
+                mWiFiSsid.setText("" + ssidData);
             } else {
                 mWiFiRouName.setText("ROUTER SSID: xx:xx:xx:xx:xx:xx");
+            }
+
+            if ((securityDataByte == WifiSecType.WIFI_SECURITY_PSK) || (securityDataByte == WifiSecType.WIFI_SECURITY_OTHERS)) {
+                mWiFiPassword.setText("********");
             }
 
             // sta bssid
@@ -1583,10 +1592,10 @@ public class WiFiManagerFragment extends Fragment {
             mWiFiRouSecType.setText(secTypeStr + "-");
 
             // sta autorun interval
-            if (mAutorunIntervalValue >= 0) {
+            if (mAutorunIntervalValue > 0) {
                 mAutorunInterval.setText("" + mAutorunIntervalValue);
             } else {
-                mAutorunInterval.setText("");
+                mAutorunInterval.setText("" + TimeOutValue.AUTORUN_TIMEOUT_DISABLE);
             }
 
         } else if (wifiIfaceTypeByte == 1) { //ap iface
